@@ -36,7 +36,7 @@ export function Dashboard() {
               </div>
               <div>
                 <h1 className="font-bold text-white text-sm tracking-tight leading-normal">
-                  CloudGuardian <span className="text-blue-400">AI</span>
+                  InfraSight
                 </h1>
                 <span className="text-[8px] text-slate-500 font-semibold tracking-widest block font-mono uppercase">Control Tower</span>
               </div>
@@ -116,10 +116,10 @@ export function Dashboard() {
                       Overview Dashboard
                     </div>
                     <h3 className="text-xl font-extrabold text-white tracking-tight sm:text-2xl">
-                      Welcome, {user?.name || 'Guardian'}
+                      Welcome, {user?.name || 'Operator'}
                     </h3>
                     <p className="text-xs text-slate-400 leading-relaxed max-w-lg font-normal">
-                      Authentication succeeded. You are successfully signed into CloudGuardian AI. Your session token is stored and will automatically renew. Follow-on modules (Terraform, Drift, PDF) will activate in the next sprint cycle.
+                      Authentication succeeded. You are successfully signed into InfraSight. Your session token is stored and will automatically renew. Follow-on modules (Terraform, Drift, PDF) will activate in the next sprint cycle.
                     </p>
                   </div>
                   <div className="flex items-center gap-2 text-[10px] text-slate-500 font-mono">

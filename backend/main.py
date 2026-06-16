@@ -7,7 +7,7 @@ from backend.config.settings import settings
 from backend.database.session import engine, Base
 # Import models to ensure they are registered on Base for table creation
 from backend.models.user import User
-from backend.models.terraform import TerraformFile, AnalysisRecord
+from backend.models.terraform import TerraformFile, TerraformResource
 from backend.routes.auth import router as auth_router
 from backend.routes.health import router as health_router
 from backend.routes.terraform import router as terraform_router
@@ -35,7 +35,7 @@ except Exception as e:
 # Initialize FastAPI application
 app = FastAPI(
     title=settings.APP_NAME,
-    description="Secure Production Auth Backend for CloudGuardian AI",
+    description="Secure Production Auth Backend for InfraSight",
     version="1.0.0",
     debug=settings.APP_ENV == "development"
 )
@@ -60,7 +60,7 @@ app.include_router(terraform_router)
 @app.get("/")
 async def root():
     return {
-        "message": "Welcome to the CloudGuardian AI Auth Backend API. Access /docs for Swagger documentation.",
+        "message": "Welcome to the InfraSight Auth Backend API. Access /docs for Swagger documentation.",
         "docs_url": "/docs"
     }
 

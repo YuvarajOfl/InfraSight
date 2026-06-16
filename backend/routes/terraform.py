@@ -1,11 +1,11 @@
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, BackgroundTasks, status
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, status
 from sqlalchemy.orm import Session
 from typing import List
 
 from backend.database.session import get_db
 from backend.models.user import User
 from backend.routes.auth import get_current_user
-from backend.schemas.terraform import TerraformFileResponse, FileContentResponse
+from backend.schemas.terraform import TerraformFileResponse, TerraformResourceResponse
 from backend.services import terraform_service
 
 router = APIRouter(prefix="/api", tags=["Terraform Analyzer"])
@@ -17,15 +17,15 @@ async def upload_terraform_file(
     current_user: User = Depends(get_current_user)
 ):
     """
-    Accepts and validates .tf, .tfvars, or .zip files. Stores them securely
-    in an isolated user-directory and creates a record in the database.
+    Accepts, validates, and parses a terraform.tfstate, .tfstate, or .json file.
+    Saves parsed cloud resources in MySQL.
     """
     try:
         contents = await file.read()
-        db_file = terraform_service.validate_and_save_file(
+        db_file = terraform_service.validate_and_parse_terraform(
             db=db,
             user_id=current_user.id,
-            original_filename=file.filename,
+            file_name=file.filename,
             file_contents=contents
         )
         return db_file
@@ -46,26 +46,9 @@ async def list_files(
     current_user: User = Depends(get_current_user)
 ):
     """
-    Returns metadata of all uploaded Terraform files belonging to the logged-in user.
+    Returns metadata and status of all uploaded Terraform files belonging to the logged-in user.
     """
     return terraform_service.get_user_files(db, current_user.id)
-
-@router.get("/files/{id}", response_model=FileContentResponse)
-async def view_file_contents(
-    id: int,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
-):
-    """
-    Retrieves a file's metadata and contents (or archived file listing if zip) for visual display.
-    """
-    details = terraform_service.get_file_content_details(db, id, current_user.id)
-    if not details:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="File not found or access denied."
-        )
-    return details
 
 @router.delete("/files/{id}", status_code=status.HTTP_200_OK)
 async def delete_file(
@@ -74,7 +57,7 @@ async def delete_file(
     current_user: User = Depends(get_current_user)
 ):
     """
-    Deletes the file record from the database and cleans up disk storage.
+    Deletes the file record from the database and cleans up resources via cascading.
     """
     deleted = terraform_service.delete_user_file(db, id, current_user.id)
     if not deleted:
@@ -82,31 +65,32 @@ async def delete_file(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="File not found or access denied."
         )
-    return {"success": True, "message": "File deleted successfully."}
+    return {"success": True, "message": "File and discovered resources deleted successfully."}
 
-@router.post("/files/{id}/analyze", status_code=status.HTTP_202_ACCEPTED)
-async def analyze_file(
-    id: int,
-    background_tasks: BackgroundTasks,
+@router.get("/resources", response_model=List[TerraformResourceResponse])
+async def get_all_resources(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     """
-    Queues a Terraform file for security analysis. Spawns a background worker task
-    simulating Checkov scanner execution.
+    Returns all parsed cloud resources for all files uploaded by the logged-in user.
     """
-    file_record = terraform_service.queue_file_analysis(db, id, current_user.id)
+    return terraform_service.get_user_resources(db, current_user.id)
+
+@router.get("/resources/{file_id}", response_model=List[TerraformResourceResponse])
+async def get_resources_by_file(
+    file_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Returns all parsed cloud resources discovered in a specific Terraform file.
+    """
+    # Verify file ownership first
+    file_record = terraform_service.get_file_by_id(db, file_id, current_user.id)
     if not file_record:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="File not found or access denied."
         )
-    
-    # Spawn background task to simulate checkov scan
-    background_tasks.add_task(terraform_service.simulate_checkov_scan, id)
-
-    return {
-        "success": True,
-        "message": f"Analysis queued for file '{file_record.original_filename}'. Check status shortly.",
-        "status": "Queued"
-    }
+    return terraform_service.get_file_resources(db, file_id, current_user.id)

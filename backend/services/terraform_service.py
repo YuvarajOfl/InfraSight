@@ -1,191 +1,225 @@
-import os
-import uuid
-import zipfile
+import json
+import re
 import logging
-import random
-import time
 from typing import List, Optional
 from sqlalchemy.orm import Session
-
-from backend.database.session import SessionLocal
-from backend.models.terraform import TerraformFile, AnalysisRecord
-from backend.models.user import User
+from backend.models.terraform import TerraformFile, TerraformResource
 
 logger = logging.getLogger("backend.services.terraform")
 
-# Storage directory config (workspace root)
-UPLOAD_BASE_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "uploads")
-MAX_FILE_SIZE = 20 * 1024 * 1024  # 20MB
-ALLOWED_EXTENSIONS = {".tf", ".tfvars", ".zip"}
-
-def validate_and_save_file(db: Session, user_id: int, original_filename: str, file_contents: bytes) -> TerraformFile:
+def parse_provider(provider_str: str) -> str:
     """
-    Validates file extension, size, and structure (including corrupted ZIP checks).
-    Saves the file securely to uploads/{user_id}/<uuid>.<ext> and writes to DB.
+    Cleans and extracts the provider name from tfstate provider string.
+    e.g., 'provider["registry.terraform.io/hashicorp/aws"]' -> 'aws'
     """
-    # 1. Size check
-    if len(file_contents) > MAX_FILE_SIZE:
-        raise ValueError("File size exceeds the 20MB limit.")
+    if not provider_str:
+        return "unknown"
+    
+    # Extract contents inside quotes of provider["..."]
+    match = re.search(r'provider\["([^"]+)"\]', provider_str)
+    if match:
+        provider_str = match.group(1)
+        
+    # Take the last segment after the slash, e.g., 'aws'
+    parts = provider_str.split('/')
+    return parts[-1].strip().lower()
 
-    # 2. Extension check
-    _, ext = os.path.splitext(original_filename.lower())
-    if ext not in ALLOWED_EXTENSIONS:
-        raise ValueError(f"Unsupported file type '{ext}'. Allowed types: {', '.join(ALLOWED_EXTENSIONS)}")
+def extract_region(attributes: dict, provider: str, resource_type: str) -> str:
+    """
+    Extracts regional location from resource attributes. Fallback to global/default values.
+    """
+    if not attributes:
+        return "global" if provider == "aws" else "N/A"
+    
+    # 1. Direct checks for common region/location fields
+    if "region" in attributes and attributes["region"]:
+        return str(attributes["region"])
+    if "location" in attributes and attributes["location"]:
+        return str(attributes["location"])
+        
+    # 2. AWS ARN Parsing
+    for key in ["arn", "arn_format", "id"]:
+        val = attributes.get(key)
+        if isinstance(val, str) and val.startswith("arn:aws:"):
+            parts = val.split(":")
+            if len(parts) > 3 and parts[3]:
+                return parts[3]
+                
+    # 3. AWS Provider-specific heuristics
+    if provider == "aws":
+        # Global resources check
+        global_types = {
+            "aws_iam_role", "aws_iam_policy", "aws_iam_user", "aws_iam_group",
+            "aws_route53_zone", "aws_cloudfront_distribution", "aws_s3_bucket" # S3 is technically global in namespace, but has regional endpoint. Often, we get region from ARN or default.
+        }
+        if resource_type in global_types and resource_type != "aws_s3_bucket":
+            return "global"
+            
+        # Parse from S3 bucket domain/region if present
+        if resource_type == "aws_s3_bucket":
+            bucket_region = attributes.get("region") or attributes.get("bucket_domain_name")
+            if bucket_region and "s3." in str(bucket_region):
+                # e.g., s3.us-west-2.amazonaws.com
+                match = re.search(r's3\.([a-z0-9\-]+)\.amazonaws', str(bucket_region))
+                if match:
+                    return match.group(1)
+            
+        # Availability Zone to Region (e.g. us-west-2a -> us-west-2)
+        if "availability_zone" in attributes and attributes["availability_zone"]:
+            az = str(attributes["availability_zone"])
+            if az[-1].isalpha() and az[-2].isdigit():
+                return az[:-1]
+            return az
+            
+        return "us-east-1"  # Default AWS region fallback
 
-    # 3. Zip file integrity check
-    if ext == ".zip":
-        import io
+    return "N/A"
+
+def validate_and_parse_terraform(db: Session, user_id: int, file_name: str, file_contents: bytes) -> TerraformFile:
+    """
+    Validates file extension, structure, parses JSON tfstate and saves resources into the database.
+    """
+    lower_name = file_name.lower()
+    
+    # 1. Validate File extension
+    if not (lower_name == "terraform.tfstate" or lower_name.endswith(".tfstate") or lower_name.endswith(".json")):
+        raise ValueError("Invalid file type. Only terraform.tfstate, .tfstate, and .json files are allowed.")
+        
+    # 2. Parse file content as JSON
+    data = None
+    decoding_errors = []
+    for encoding in ["utf-8", "utf-8-sig", "utf-16", "utf-16-le", "utf-16-be"]:
         try:
-            with zipfile.ZipFile(io.BytesIO(file_contents)) as zf:
-                bad_file = zf.testzip()
-                if bad_file:
-                    raise ValueError(f"Corrupted zip archive: first bad file is {bad_file}")
-                if not zf.namelist():
-                    raise ValueError("Zip archive is empty.")
-        except zipfile.BadZipFile:
-            raise ValueError("Invalid or corrupted ZIP file structure.")
+            decoded_text = file_contents.decode(encoding)
+            data = json.loads(decoded_text)
+            break
+        except (UnicodeDecodeError, json.JSONDecodeError) as e:
+            decoding_errors.append(f"{encoding}: {str(e)}")
+            
+    if data is None:
+        logger.error(f"Failed to decode or parse JSON state file: {decoding_errors}")
+        raise ValueError("Invalid file format. The file is not a valid JSON document.")
+        
+    if not isinstance(data, dict):
+        raise ValueError("Invalid state structure. Root must be a JSON object.")
+        
+    if "resources" not in data or not isinstance(data["resources"], list):
+        raise ValueError("Invalid Terraform state file. Missing 'resources' list.")
 
-    # 4. Create destination directory
-    user_upload_dir = os.path.join(UPLOAD_BASE_DIR, str(user_id))
-    os.makedirs(user_upload_dir, exist_ok=True)
-
-    # 5. Generate secure unique filename
-    unique_filename = f"{uuid.uuid4()}{ext}"
-    dest_path = os.path.join(user_upload_dir, unique_filename)
-
-    # 6. Write to disk
-    with open(dest_path, "wb") as f:
-        f.write(file_contents)
-
-    # 7. Write record to Database
+    # 3. Create File record
+    file_type = "tfstate" if lower_name.endswith(".tfstate") else "json"
     db_file = TerraformFile(
         user_id=user_id,
-        filename=unique_filename,
-        original_filename=original_filename,
-        file_path=dest_path,
+        file_name=file_name,
+        file_type=file_type,
         status="uploaded"
     )
     db.add(db_file)
     db.commit()
     db.refresh(db_file)
 
-    logger.info(f"User {user_id} uploaded {original_filename} successfully saved as {unique_filename}")
+    try:
+        # 4. Iterate over resources and instances
+        resources_to_insert = []
+        for resource in data["resources"]:
+            res_type = resource.get("type")
+            res_name = resource.get("name")
+            res_provider = parse_provider(resource.get("provider", ""))
+            
+            if not res_type or not res_name:
+                continue
+                
+            instances = resource.get("instances", [])
+            if not instances:
+                # Edge case: Resource block declared with no deployed instances
+                db_resource = TerraformResource(
+                    file_id=db_file.id,
+                    resource_type=res_type,
+                    resource_name=res_name,
+                    provider=res_provider,
+                    region="N/A",
+                    resource_metadata={},
+                    status="Managed"
+                )
+                resources_to_insert.append(db_resource)
+            else:
+                for idx, inst in enumerate(instances):
+                    attrs = inst.get("attributes", {})
+                    # Build friendly display name with index if multiple instances exist
+                    inst_name = res_name
+                    index_key = inst.get("index_key")
+                    if index_key is not None:
+                        inst_name = f"{res_name}[{index_key}]"
+                    elif len(instances) > 1:
+                        inst_name = f"{res_name}[{idx}]"
+                        
+                    inst_region = extract_region(attrs, res_provider, res_type)
+                    inst_status = "Managed"
+                    if inst.get("status") == "deposed":
+                        inst_status = "Deposed"
+                        
+                    db_resource = TerraformResource(
+                        file_id=db_file.id,
+                        resource_type=res_type,
+                        resource_name=inst_name,
+                        provider=res_provider,
+                        region=inst_region,
+                        resource_metadata=attrs,
+                        status=inst_status
+                    )
+                    resources_to_insert.append(db_resource)
+                    
+        if resources_to_insert:
+            db.add_all(resources_to_insert)
+            
+        db_file.status = "parsed"
+        db.commit()
+        db.refresh(db_file)
+        
+    except Exception as e:
+        db_file.status = "failed"
+        db.commit()
+        logger.error(f"Error parsing Terraform state contents: {e}")
+        raise ValueError(f"Failed to parse resources from Terraform state: {str(e)}")
+        
     return db_file
 
 def get_user_files(db: Session, user_id: int) -> List[TerraformFile]:
     """
-    Returns list of all terraform files uploaded by a specific user.
+    Returns list of all terraform files uploaded by a user.
     """
-    return db.query(TerraformFile).filter(TerraformFile.user_id == user_id).order_by(TerraformFile.upload_timestamp.desc()).all()
+    return db.query(TerraformFile).filter(TerraformFile.user_id == user_id).order_by(TerraformFile.upload_time.desc()).all()
 
 def get_file_by_id(db: Session, file_id: int, user_id: int) -> Optional[TerraformFile]:
     """
-    Retrieves a single TerraformFile if it belongs to the authenticated user.
+    Gets a single file belonging to the user.
     """
     return db.query(TerraformFile).filter(TerraformFile.id == file_id, TerraformFile.user_id == user_id).first()
 
-def get_file_content_details(db: Session, file_id: int, user_id: int) -> dict:
+def get_user_resources(db: Session, user_id: int) -> List[TerraformResource]:
     """
-    Retrieves file metadata and reads text content (or archive lists) if valid.
+    Gets all parsed resources for all files uploaded by a user.
     """
-    file_record = get_file_by_id(db, file_id, user_id)
-    if not file_record:
-        return {}
+    return db.query(TerraformResource).join(TerraformFile).filter(TerraformFile.user_id == user_id).all()
 
-    _, ext = os.path.splitext(file_record.original_filename.lower())
-    is_text = ext in {".tf", ".tfvars"}
-
-    result = {
-        "id": file_record.id,
-        "original_filename": file_record.original_filename,
-        "status": file_record.status,
-        "is_text": is_text,
-        "content": None,
-        "zip_files": None
-    }
-
-    if not os.path.exists(file_record.file_path):
-        result["content"] = "[Error: File missing from storage disk.]"
-        return result
-
-    if is_text:
-        try:
-            with open(file_record.file_path, "r", encoding="utf-8", errors="replace") as f:
-                result["content"] = f.read()
-        except Exception as e:
-            result["content"] = f"[Error reading file: {str(e)}]"
-    elif ext == ".zip":
-        try:
-            with zipfile.ZipFile(file_record.file_path) as zf:
-                result["zip_files"] = zf.namelist()
-        except Exception as e:
-            result["zip_files"] = [f"[Error reading zip headers: {str(e)}]"]
-
-    return result
+def get_file_resources(db: Session, file_id: int, user_id: int) -> List[TerraformResource]:
+    """
+    Gets parsed resources from a specific file belonging to the user.
+    """
+    return db.query(TerraformResource).join(TerraformFile).filter(
+        TerraformResource.file_id == file_id,
+        TerraformFile.user_id == user_id
+    ).all()
 
 def delete_user_file(db: Session, file_id: int, user_id: int) -> bool:
     """
-    Deletes the file metadata and record from DB and deletes the file from disk.
+    Deletes the file metadata and record from DB, cascading to clean up resources.
     """
     file_record = get_file_by_id(db, file_id, user_id)
     if not file_record:
         return False
-
-    # 1. Delete from disk
-    if os.path.exists(file_record.file_path):
-        try:
-            os.remove(file_record.file_path)
-            logger.info(f"Deleted physical file: {file_record.file_path}")
-        except Exception as e:
-            logger.error(f"Failed to delete physical file {file_record.file_path}: {e}")
-
-    # 2. Delete from DB (cascade cleans up AnalysisRecords)
+        
     db.delete(file_record)
     db.commit()
-    logger.info(f"Deleted terraform file database entry #{file_id}")
+    logger.info(f"Successfully deleted terraform file #{file_id} and its associated resources.")
     return True
-
-def simulate_checkov_scan(file_id: int):
-    """
-    Background Task simulating Checkov scan.
-    Waits 4 seconds, updates status to 'analyzed', and adds a placeholder analysis record.
-    """
-    logger.info(f"Starting simulated scanning for file #{file_id} in background task...")
-    time.sleep(4)
-    db = SessionLocal()
-    try:
-        file_record = db.query(TerraformFile).filter(TerraformFile.id == file_id).first()
-        if file_record:
-            file_record.status = "analyzed"
-            
-            # Simulated finding generation
-            findings_count = random.choice([0, 1, 3, 5, 8])
-            analysis_rec = AnalysisRecord(
-                file_id=file_id,
-                status="Completed",
-                findings_count=findings_count
-            )
-            db.add(analysis_rec)
-            db.commit()
-            logger.info(f"Simulated scanning completed for file #{file_id}. Status set to analyzed. Findings: {findings_count}")
-        else:
-            logger.warning(f"File #{file_id} not found in database during simulated scan.")
-    except Exception as e:
-        logger.error(f"Error during simulated scan for file #{file_id}: {e}")
-    finally:
-        db.close()
-
-def queue_file_analysis(db: Session, file_id: int, user_id: int) -> Optional[TerraformFile]:
-    """
-    Initiates analysis. Sets status to 'queued' and prepares simulation logic hooks.
-    """
-    file_record = get_file_by_id(db, file_id, user_id)
-    if not file_record:
-        return None
-
-    # Update state to queued
-    file_record.status = "queued"
-    db.commit()
-    db.refresh(file_record)
-    
-    return file_record

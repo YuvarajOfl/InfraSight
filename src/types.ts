@@ -8,23 +8,23 @@ export interface User {
   updated_at: string;
 }
 
-export interface AnalysisRecord {
+export interface TerraformResource {
   id: number;
   file_id: number;
+  resource_type: string;
+  resource_name: string;
+  provider: string;
+  region: string;
+  resource_metadata: any;
   status: string;
-  findings_count: number;
-  created_at: string;
 }
 
 export interface TerraformFile {
   id: number;
   user_id: number;
-  filename: string;
-  original_filename: string;
-  file_path: string;
-  upload_timestamp: string;
-  status: 'uploaded' | 'queued' | 'analyzed' | 'failed';
-  created_at: string;
-  analysis_records: AnalysisRecord[];
+  file_name: string;
+  file_type: string;
+  upload_time: string;
+  status: 'uploaded' | 'parsed' | 'failed';
+  resources?: TerraformResource[];
 }
-

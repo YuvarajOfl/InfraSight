@@ -125,7 +125,7 @@ export function LoginPage() {
             <Shield className="h-5 w-5" />
           </div>
           <div>
-            <span className="font-bold text-white tracking-tight text-lg">CloudGuardian AI</span>
+            <span className="font-bold text-white tracking-tight text-lg">InfraSight</span>
             <span className="text-[8px] text-slate-500 font-semibold tracking-widest block font-mono uppercase">Security & Drift control</span>
           </div>
         </div>
@@ -150,13 +150,13 @@ export function LoginPage() {
           </div>
           
           <h1 className="text-4xl sm:text-5xl font-extrabold tracking-tight text-white leading-tight">
-            CloudGuardian AI
+            InfraSight
           </h1>
           <h2 className="text-xl sm:text-2xl font-bold text-blue-450 text-indigo-400">
-            Terraform Security & Drift Analyzer
+            Understand Infrastructure Before Deployment
           </h2>
           <p className="text-sm sm:text-base text-slate-400 leading-relaxed">
-            Analyze Terraform infrastructure files, detect security risks, identify configuration drift, and generate downloadable reports.
+            Analyze Terraform infrastructure, estimate costs, identify security risks, detect configuration drift, and generate downloadable reports.
           </p>
 
           {/* Features Preview Cards */}
@@ -321,7 +321,7 @@ export function LoginPage() {
 
       {/* Footer bar */}
       <footer className="w-full h-12 border-t border-white/5 bg-slate-950/30 flex items-center justify-between px-6 sm:px-12 text-[10px] text-slate-500 relative z-10">
-        <span>© 2026 CloudGuardian AI Platform. All rights reserved.</span>
+        <span>© 2026 InfraSight Platform. All rights reserved.</span>
         <span className="font-mono uppercase tracking-wider text-[8px] bg-slate-900 border border-white/5 rounded px-1.5 py-0.5">Sprint: Auth & Identity</span>
       </footer>
 

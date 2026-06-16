@@ -3,7 +3,7 @@ from typing import List
 from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
-    APP_NAME: str = "CloudGuardian AI Auth Backend"
+    APP_NAME: str = "InfraSight Auth Backend"
     APP_ENV: str = "development"
     PORT: int = 8000
 
@@ -12,7 +12,7 @@ class Settings(BaseSettings):
     DB_PASSWORD: str = "rootpassword"
     DB_HOST: str = "127.0.0.1"
     DB_PORT: str = "3306"
-    DB_NAME: str = "cloudguardian"
+    DB_NAME: str = "infrasight"
 
     # JWT Configuration
     JWT_SECRET: str = "43b1c1e5a5f4fcd3116df1b3152a5170d742617f698e82ef6fae54ab0d45bf86"

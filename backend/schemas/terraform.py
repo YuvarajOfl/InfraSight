@@ -1,13 +1,16 @@
 from pydantic import BaseModel
 from datetime import datetime
-from typing import List, Optional
+from typing import List, Any, Optional
 
-class AnalysisRecordResponse(BaseModel):
+class TerraformResourceResponse(BaseModel):
     id: int
     file_id: int
+    resource_type: str
+    resource_name: str
+    provider: str
+    region: str
+    resource_metadata: Optional[Any] = None
     status: str
-    findings_count: int
-    created_at: datetime
 
     class Config:
         from_attributes = True
@@ -16,22 +19,12 @@ class AnalysisRecordResponse(BaseModel):
 class TerraformFileResponse(BaseModel):
     id: int
     user_id: int
-    filename: str
-    original_filename: str
-    file_path: str
-    upload_timestamp: datetime
+    file_name: str
+    file_type: str
+    upload_time: datetime
     status: str
-    created_at: datetime
-    analysis_records: List[AnalysisRecordResponse] = []
+    resources: List[TerraformResourceResponse] = []
 
     class Config:
         from_attributes = True
 
-
-class FileContentResponse(BaseModel):
-    id: int
-    original_filename: str
-    status: str
-    is_text: bool
-    content: Optional[str] = None
-    zip_files: Optional[List[str]] = None

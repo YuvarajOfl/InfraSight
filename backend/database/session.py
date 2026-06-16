@@ -25,7 +25,7 @@ except Exception as conn_err:
     logger.warning(f"MySQL server connection failed: {conn_err}. Falling back to local SQLite database.")
     # Initialize SQLite database file locally
     engine = create_engine(
-        "sqlite:///./cloudguardian.db",
+        "sqlite:///./infrasight.db",
         connect_args={"check_same_thread": False}
     )
 

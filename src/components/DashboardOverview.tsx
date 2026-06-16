@@ -27,10 +27,10 @@ export function DashboardOverview() {
               Overview Dashboard
             </div>
             <h3 className="text-xl font-extrabold text-white tracking-tight sm:text-2xl">
-              Welcome, {user?.name || 'Guardian'}
+              Welcome, {user?.name || 'Operator'}
             </h3>
             <p className="text-xs text-slate-400 leading-relaxed max-w-lg font-normal">
-              Authentication succeeded. You are successfully signed into CloudGuardian AI. Navigate to the Terraform Analyzer to upload Infrastructure-as-Code files, discover security findings, and generate compliance reports.
+              Authentication succeeded. You are successfully signed into InfraSight. Navigate to the Terraform Analyzer to upload Infrastructure-as-Code files, discover security findings, and generate compliance reports.
             </p>
           </div>
           <div className="flex items-center gap-2 text-[10px] text-slate-500 font-mono">

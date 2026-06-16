@@ -16,7 +16,7 @@ def verify_google_id_token(token: str) -> dict:
         logger.info(f"Bypassing Google ID token verification for testing token: {token}")
         return {
             "sub": f"google_{token}",
-            "email": "dev.user@cloudguardian.ai",
+            "email": "dev.user@infrasight.ai",
             "name": "Developer Explorer",
             "picture": None,
             "email_verified": True

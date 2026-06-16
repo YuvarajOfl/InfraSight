@@ -34,7 +34,7 @@ export function DashboardLayout() {
               </div>
               <div>
                 <h1 className="font-bold text-white text-sm tracking-tight leading-normal">
-                  CloudGuardian <span className="text-blue-400">AI</span>
+                  InfraSight
                 </h1>
                 <span className="text-[8px] text-slate-500 font-semibold tracking-widest block font-mono uppercase">Control Tower</span>
               </div>
@@ -109,7 +109,7 @@ export function DashboardLayout() {
           <header className="h-16 border-b border-white/5 px-8 flex items-center justify-between shrink-0 bg-slate-950/20 backdrop-blur-sm">
             <h2 className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2">
               <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-              <span>Control Center / {user?.name || 'Guardian'}</span>
+              <span>Control Center / {user?.name || 'Operator'}</span>
             </h2>
             <div className="flex items-center gap-4">
               <span className="text-[10px] font-mono font-semibold px-2 py-0.5 bg-blue-500/10 border border-blue-500/20 text-blue-400 rounded uppercase hidden sm:inline-block">
