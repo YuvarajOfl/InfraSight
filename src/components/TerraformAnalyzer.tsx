@@ -12,7 +12,9 @@ import {
   Filter,
   ChevronLeft,
   ChevronRight,
-  Database
+  Database,
+  ShieldAlert,
+  FileText
 } from 'lucide-react';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
@@ -23,10 +25,12 @@ export function TerraformAnalyzer() {
   // Data State
   const [files, setFiles] = useState<TerraformFile[]>([]);
   const [resources, setResources] = useState<TerraformResource[]>([]);
+  const [findings, setFindings] = useState<any[]>([]);
   
   // Loading & Action State
   const [loadingFiles, setLoadingFiles] = useState<boolean>(true);
   const [loadingResources, setLoadingResources] = useState<boolean>(true);
+  const [loadingFindings, setLoadingFindings] = useState<boolean>(true);
   const [uploading, setUploading] = useState<boolean>(false);
   const [uploadProgress, setUploadProgress] = useState<number>(0);
   const [dragOver, setDragOver] = useState<boolean>(false);
@@ -37,6 +41,12 @@ export function TerraformAnalyzer() {
   const [selectedProvider, setSelectedProvider] = useState<string>('all');
   const [selectedType, setSelectedType] = useState<string>('all');
   const [selectedFileId, setSelectedFileId] = useState<string>('all');
+  
+  // Tab State
+  const [activeTab, setActiveTab] = useState<'inventory' | 'findings'>('inventory');
+  const [findingsSearchTerm, setFindingsSearchTerm] = useState<string>('');
+  const [selectedSeverity, setSelectedSeverity] = useState<string>('all');
+
   const [currentPage, setCurrentPage] = useState<number>(1);
   const itemsPerPage = 10;
 
@@ -90,15 +100,72 @@ export function TerraformAnalyzer() {
     }
   };
 
+  // Fetch Findings from Backend
+  const fetchFindings = async (silent = false) => {
+    if (!silent) setLoadingFindings(true);
+    try {
+      const url = selectedFileId === 'all' 
+        ? `${API_URL}/api/findings` 
+        : `${API_URL}/api/findings/${selectedFileId}`;
+        
+      const response = await fetch(url, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setFindings(data);
+      } else {
+        console.error('Failed to fetch findings.');
+      }
+    } catch (err) {
+      console.error('Network error fetching findings:', err);
+    } finally {
+      if (!silent) setLoadingFindings(false);
+    }
+  };
+
+  // Handle PDF report generation and download
+  const handleDownloadReport = async (fileId: number, fileName: string) => {
+    try {
+      const response = await fetch(`${API_URL}/api/reports/download/${fileId}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      if (!response.ok) {
+        throw new Error('Failed to generate PDF compliance report.');
+      }
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      
+      let safeName = fileName.replace(/\.[^/.]+$/, "");
+      a.download = `infrasight_report_${safeName}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+      triggerMessage('success', `PDF compliance report for '${fileName}' downloaded successfully.`);
+    } catch (err) {
+      triggerMessage('error', 'Failed to generate and download compliance PDF report.');
+      console.error(err);
+    }
+  };
+
   // Load initial data
   useEffect(() => {
     fetchFiles();
     fetchResources();
+    fetchFindings();
   }, [token]);
 
-  // Refetch resources whenever selected file filter changes
+  // Refetch resources & findings whenever selected file filter changes
   useEffect(() => {
     fetchResources();
+    fetchFindings();
     setCurrentPage(1); // Reset page on filter update
   }, [selectedFileId]);
 
@@ -180,6 +247,7 @@ export function TerraformAnalyzer() {
         triggerMessage('success', `File '${file.name}' parsed successfully.`);
         fetchFiles(true);
         fetchResources(true);
+        fetchFindings(true);
       } else {
         try {
           const errData = JSON.parse(xhr.responseText);
@@ -218,6 +286,7 @@ export function TerraformAnalyzer() {
         } else {
           fetchFiles(true);
           fetchResources(true);
+          fetchFindings(true);
         }
       } else {
         triggerMessage('error', 'Failed to delete file.');
@@ -231,6 +300,7 @@ export function TerraformAnalyzer() {
   const handleRefreshAll = () => {
     fetchFiles();
     fetchResources();
+    fetchFindings();
   };
 
   // Derived Filter Options
@@ -255,10 +325,30 @@ export function TerraformAnalyzer() {
     return matchSearch && matchProvider && matchType;
   });
 
+  // Filtered findings list
+  const filteredFindings = findings.filter(f => {
+    const matchSearch = findingsSearchTerm === '' ||
+      f.title.toLowerCase().includes(findingsSearchTerm.toLowerCase()) ||
+      f.description.toLowerCase().includes(findingsSearchTerm.toLowerCase()) ||
+      f.recommendation.toLowerCase().includes(findingsSearchTerm.toLowerCase()) ||
+      f.resource_name.toLowerCase().includes(findingsSearchTerm.toLowerCase()) ||
+      f.resource_type.toLowerCase().includes(findingsSearchTerm.toLowerCase());
+      
+    const matchSeverity = selectedSeverity === 'all' || f.severity === selectedSeverity;
+    
+    return matchSearch && matchSeverity;
+  });
+
   // Pagination bounds
-  const totalItems = filteredResources.length;
+  const totalItems = activeTab === 'inventory' ? filteredResources.length : filteredFindings.length;
   const totalPages = Math.ceil(totalItems / itemsPerPage) || 1;
+  
   const paginatedResources = filteredResources.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
+
+  const paginatedFindings = filteredFindings.slice(
     (currentPage - 1) * itemsPerPage,
     currentPage * itemsPerPage
   );
@@ -422,7 +512,16 @@ export function TerraformAnalyzer() {
                           </span>
                         )}
                       </td>
-                      <td className="py-3 px-6 text-right">
+                      <td className="py-3 px-6 text-right flex items-center justify-end gap-2">
+                        {file.status === 'parsed' && (
+                          <button
+                            onClick={() => handleDownloadReport(file.id, file.file_name)}
+                            className="p-1.5 hover:bg-blue-500/10 border border-white/5 hover:border-blue-900/30 text-slate-400 hover:text-blue-400 rounded-lg transition-colors cursor-pointer"
+                            title="Download PDF Compliance Report"
+                          >
+                            <FileText className="h-3.5 w-3.5" />
+                          </button>
+                        )}
                         <button
                           onClick={() => handleDelete(file.id, file.file_name)}
                           className="p-1.5 hover:bg-rose-500/10 border border-white/5 hover:border-rose-900/30 text-slate-400 hover:text-rose-450 rounded-lg transition-colors cursor-pointer"
@@ -439,16 +538,35 @@ export function TerraformAnalyzer() {
           )}
         </div>
 
-        {/* Resource Inventory Table */}
+        {/* Resource / Findings Tabbed View */}
         <div className="bg-slate-900/20 border border-white/5 rounded-2xl overflow-hidden shadow-xl">
           
-          {/* Header */}
+          {/* Header with Tabs and File Filter */}
           <div className="p-5 border-b border-white/5 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-            <div className="flex items-center gap-2">
-              <Database className="h-4 w-4 text-emerald-400" />
-              <span className="text-xs font-mono font-bold uppercase tracking-wider text-slate-450">
-                Discovered Cloud Resource Inventory
-              </span>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => { setActiveTab('inventory'); setCurrentPage(1); }}
+                className={`flex items-center gap-2 text-xs font-mono font-bold uppercase tracking-wider transition-all cursor-pointer py-1.5 px-3 rounded-lg ${
+                  activeTab === 'inventory' 
+                    ? 'text-emerald-400 bg-emerald-500/10 border border-emerald-500/20' 
+                    : 'text-slate-400 hover:text-slate-200 hover:bg-white/5'
+                }`}
+              >
+                <Database className="h-3.5 w-3.5" />
+                <span>Cloud Inventory ({resources.length})</span>
+              </button>
+              
+              <button
+                onClick={() => { setActiveTab('findings'); setCurrentPage(1); }}
+                className={`flex items-center gap-2 text-xs font-mono font-bold uppercase tracking-wider transition-all cursor-pointer py-1.5 px-3 rounded-lg ${
+                  activeTab === 'findings' 
+                    ? 'text-rose-400 bg-rose-500/10 border border-rose-500/20' 
+                    : 'text-slate-400 hover:text-slate-200 hover:bg-white/5'
+                }`}
+              >
+                <ShieldAlert className="h-3.5 w-3.5" />
+                <span>Security Findings ({findings.length})</span>
+              </button>
             </div>
             
             {/* File Filter Dropdown */}
@@ -457,7 +575,7 @@ export function TerraformAnalyzer() {
               <select
                 value={selectedFileId}
                 onChange={(e) => setSelectedFileId(e.target.value)}
-                className="bg-slate-950 border border-white/10 rounded-lg py-1 px-3.5 text-slate-300 text-xs focus:border-emerald-500 focus:outline-none"
+                className="bg-slate-950 border border-white/10 rounded-lg py-1 px-3.5 text-slate-300 text-xs focus:border-blue-500 focus:outline-none"
               >
                 <option value="all">All Uploaded Files</option>
                 {files.filter(f => f.status === 'parsed').map(f => (
@@ -468,159 +586,279 @@ export function TerraformAnalyzer() {
           </div>
 
           {/* Search and Filters Controls */}
-          <div className="p-5 border-b border-white/5 bg-slate-950/20 grid grid-cols-1 sm:grid-cols-3 gap-4">
-            
-            {/* Search Input */}
-            <div className="relative">
-              <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <Search className="h-3.5 w-3.5 text-slate-500" />
-              </span>
-              <input
-                type="text"
-                placeholder="Search resources..."
-                value={searchTerm}
-                onChange={(e) => {
-                  setSearchTerm(e.target.value);
-                  setCurrentPage(1);
-                }}
-                className="w-full pl-9 pr-4 py-1.5 bg-slate-950 border border-white/10 rounded-lg text-xs text-slate-200 placeholder-slate-500 focus:border-emerald-500 focus:outline-none"
-              />
-            </div>
-
-            {/* Provider Filter */}
-            <div className="relative">
-              <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <Filter className="h-3.5 w-3.5 text-slate-500" />
-              </span>
-              <select
-                value={selectedProvider}
-                onChange={(e) => {
-                  setSelectedProvider(e.target.value);
-                  setCurrentPage(1);
-                }}
-                className="w-full pl-9 pr-4 py-1.5 bg-slate-950 border border-white/10 rounded-lg text-xs text-slate-300 focus:border-emerald-500 focus:outline-none cursor-pointer"
-              >
-                <option value="all">All Providers</option>
-                {uniqueProviders.map(p => (
-                  <option key={p} value={p}>{p.toUpperCase()}</option>
-                ))}
-              </select>
-            </div>
-
-            {/* Resource Type Filter */}
-            <div className="relative">
-              <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <Filter className="h-3.5 w-3.5 text-slate-500" />
-              </span>
-              <select
-                value={selectedType}
-                onChange={(e) => {
-                  setSelectedType(e.target.value);
-                  setCurrentPage(1);
-                }}
-                className="w-full pl-9 pr-4 py-1.5 bg-slate-950 border border-white/10 rounded-lg text-xs text-slate-300 focus:border-emerald-500 focus:outline-none cursor-pointer"
-              >
-                <option value="all">All Resource Types</option>
-                {uniqueTypes.map(t => (
-                  <option key={t} value={t}>{t}</option>
-                ))}
-              </select>
-            </div>
-
-          </div>
-
-          {loadingResources ? (
-            <div className="p-16 flex flex-col items-center justify-center gap-3">
-              <div className="h-7 w-7 border-3 border-emerald-500 border-t-transparent rounded-full animate-spin" />
-              <span className="text-xs font-mono text-slate-500">Analyzing schema logs...</span>
-            </div>
-          ) : totalItems === 0 ? (
-            <div className="p-16 text-center space-y-2">
-              <p className="text-slate-450 text-xs font-semibold">No resources discovered.</p>
-              <p className="text-slate-600 text-[10px] max-w-sm mx-auto leading-normal">
-                Upload a state file containing cloud configuration items or adjust your active query filters.
-              </p>
-            </div>
-          ) : (
-            <div>
-              <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse">
-                  <thead>
-                    <tr className="border-b border-white/5 bg-slate-950/40 text-[9px] font-bold text-slate-500 uppercase tracking-widest font-mono">
-                      <th className="py-3 px-6">Resource Name</th>
-                      <th className="py-3 px-6">Resource Type</th>
-                      <th className="py-3 px-6">Provider</th>
-                      <th className="py-3 px-6">Region</th>
-                      <th className="py-3 px-6">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-white/[0.02]">
-                    {paginatedResources.map((res) => (
-                      <tr key={res.id} className="hover:bg-white/[0.01] transition-all text-xs text-slate-350">
-                        <td className="py-3.5 px-6 font-semibold text-slate-200">
-                          {res.resource_name}
-                        </td>
-                        <td className="py-3.5 px-6 font-mono text-[10px] text-slate-400">
-                          {res.resource_type}
-                        </td>
-                        <td className="py-3.5 px-6 font-bold uppercase tracking-wider text-[10px] text-slate-500">
-                          <span className={`inline-block px-1.5 py-0.5 rounded text-[9px] ${
-                            res.provider === 'aws' ? 'bg-amber-500/10 text-amber-400' : 'bg-blue-500/10 text-blue-400'
-                          }`}>
-                            {res.provider}
-                          </span>
-                        </td>
-                        <td className="py-3.5 px-6 font-mono text-slate-450">
-                          {res.region}
-                        </td>
-                        <td className="py-3.5 px-6">
-                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-semibold ${
-                            res.status === 'Managed' 
-                              ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
-                              : 'bg-amber-500/10 text-amber-405 border border-amber-500/20'
-                          }`}>
-                            {res.status}
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-
-              {/* Pagination Controls */}
-              <div className="p-4 border-t border-white/5 bg-slate-950/20 flex items-center justify-between">
-                <span className="text-[10px] text-slate-550 font-mono">
-                  Showing {(currentPage - 1) * itemsPerPage + 1} to {Math.min(currentPage * itemsPerPage, totalItems)} of {totalItems} items
-                </span>
-                
-                <div className="flex items-center gap-1.5">
-                  <button
-                    onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                    disabled={currentPage === 1}
-                    className="p-1.5 bg-white/5 border border-white/10 hover:bg-white/10 rounded-lg text-slate-400 hover:text-white transition-all disabled:opacity-30 disabled:pointer-events-none cursor-pointer"
-                  >
-                    <ChevronLeft className="h-3.5 w-3.5" />
-                  </button>
-                  <span className="text-[10px] text-slate-400 font-mono font-semibold px-2">
-                    Page {currentPage} of {totalPages}
+          <div className="p-5 border-b border-white/5 bg-slate-950/20">
+            {activeTab === 'inventory' ? (
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                {/* Search Input */}
+                <div className="relative">
+                  <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <Search className="h-3.5 w-3.5 text-slate-500" />
                   </span>
-                  <button
-                    onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                    disabled={currentPage === totalPages}
-                    className="p-1.5 bg-white/5 border border-white/10 hover:bg-white/10 rounded-lg text-slate-400 hover:text-white transition-all disabled:opacity-30 disabled:pointer-events-none cursor-pointer"
+                  <input
+                    type="text"
+                    placeholder="Search resources..."
+                    value={searchTerm}
+                    onChange={(e) => {
+                      setSearchTerm(e.target.value);
+                      setCurrentPage(1);
+                    }}
+                    className="w-full pl-9 pr-4 py-1.5 bg-slate-950 border border-white/10 rounded-lg text-xs text-slate-200 placeholder-slate-500 focus:border-emerald-500 focus:outline-none"
+                  />
+                </div>
+
+                {/* Provider Filter */}
+                <div className="relative">
+                  <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <Filter className="h-3.5 w-3.5 text-slate-500" />
+                  </span>
+                  <select
+                    value={selectedProvider}
+                    onChange={(e) => {
+                      setSelectedProvider(e.target.value);
+                      setCurrentPage(1);
+                    }}
+                    className="w-full pl-9 pr-4 py-1.5 bg-slate-950 border border-white/10 rounded-lg text-xs text-slate-300 focus:border-emerald-500 focus:outline-none cursor-pointer"
                   >
-                    <ChevronRight className="h-3.5 w-3.5" />
-                  </button>
+                    <option value="all">All Providers</option>
+                    {uniqueProviders.map(p => (
+                      <option key={p} value={p}>{p.toUpperCase()}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Resource Type Filter */}
+                <div className="relative">
+                  <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <Filter className="h-3.5 w-3.5 text-slate-500" />
+                  </span>
+                  <select
+                    value={selectedType}
+                    onChange={(e) => {
+                      setSelectedType(e.target.value);
+                      setCurrentPage(1);
+                    }}
+                    className="w-full pl-9 pr-4 py-1.5 bg-slate-950 border border-white/10 rounded-lg text-xs text-slate-300 focus:border-emerald-500 focus:outline-none cursor-pointer"
+                  >
+                    <option value="all">All Resource Types</option>
+                    {uniqueTypes.map(t => (
+                      <option key={t} value={t}>{t}</option>
+                    ))}
+                  </select>
                 </div>
               </div>
-            </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {/* Search Input for Findings */}
+                <div className="relative">
+                  <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <Search className="h-3.5 w-3.5 text-slate-500" />
+                  </span>
+                  <input
+                    type="text"
+                    placeholder="Search findings by title, description, or resource..."
+                    value={findingsSearchTerm}
+                    onChange={(e) => {
+                      setFindingsSearchTerm(e.target.value);
+                      setCurrentPage(1);
+                    }}
+                    className="w-full pl-9 pr-4 py-1.5 bg-slate-950 border border-white/10 rounded-lg text-xs text-slate-200 placeholder-slate-500 focus:border-rose-500 focus:outline-none"
+                  />
+                </div>
+
+                {/* Severity Filter */}
+                <div className="relative">
+                  <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <Filter className="h-3.5 w-3.5 text-slate-500" />
+                  </span>
+                  <select
+                    value={selectedSeverity}
+                    onChange={(e) => {
+                      setSelectedSeverity(e.target.value);
+                      setCurrentPage(1);
+                    }}
+                    className="w-full pl-9 pr-4 py-1.5 bg-slate-950 border border-white/10 rounded-lg text-xs text-slate-300 focus:border-rose-500 focus:outline-none cursor-pointer"
+                  >
+                    <option value="all">All Severities</option>
+                    <option value="Critical">Critical</option>
+                    <option value="High">High</option>
+                    <option value="Medium">Medium</option>
+                    <option value="Low">Low</option>
+                  </select>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Conditional Table Rendering */}
+          {activeTab === 'inventory' ? (
+            loadingResources ? (
+              <div className="p-16 flex flex-col items-center justify-center gap-3">
+                <div className="h-7 w-7 border-3 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+                <span className="text-xs font-mono text-slate-500">Analyzing cloud schema...</span>
+              </div>
+            ) : totalItems === 0 ? (
+              <div className="p-16 text-center space-y-2">
+                <p className="text-slate-450 text-xs font-semibold">No resources discovered.</p>
+                <p className="text-slate-600 text-[10px] max-w-sm mx-auto leading-normal">
+                  Upload a state file containing cloud configuration items or adjust your active query filters.
+                </p>
+              </div>
+            ) : (
+              <div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="border-b border-white/5 bg-slate-950/40 text-[9px] font-bold text-slate-500 uppercase tracking-widest font-mono">
+                        <th className="py-3 px-6">Resource Name</th>
+                        <th className="py-3 px-6">Resource Type</th>
+                        <th className="py-3 px-6">Provider</th>
+                        <th className="py-3 px-6">Region</th>
+                        <th className="py-3 px-6">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-white/[0.02]">
+                      {paginatedResources.map((res) => (
+                        <tr key={res.id} className="hover:bg-white/[0.01] transition-all text-xs text-slate-350">
+                          <td className="py-3.5 px-6 font-semibold text-slate-200">
+                            {res.resource_name}
+                          </td>
+                          <td className="py-3.5 px-6 font-mono text-[10px] text-slate-400">
+                            {res.resource_type}
+                          </td>
+                          <td className="py-3.5 px-6 font-bold uppercase tracking-wider text-[10px] text-slate-500">
+                            <span className={`inline-block px-1.5 py-0.5 rounded text-[9px] ${
+                              res.provider === 'aws' ? 'bg-amber-500/10 text-amber-400' : 'bg-blue-500/10 text-blue-400'
+                            }`}>
+                              {res.provider}
+                            </span>
+                          </td>
+                          <td className="py-3.5 px-6 font-mono text-slate-450">
+                            {res.region}
+                          </td>
+                          <td className="py-3.5 px-6">
+                            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-semibold ${
+                              res.status === 'Managed' 
+                                ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                                : 'bg-amber-500/10 text-amber-405 border border-amber-500/20'
+                            }`}>
+                              {res.status}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Shared Pagination Controls */}
+                {renderPaginationControls()}
+              </div>
+            )
+          ) : (
+            /* Findings Tab View */
+            loadingFindings ? (
+              <div className="p-16 flex flex-col items-center justify-center gap-3">
+                <div className="h-7 w-7 border-3 border-rose-500 border-t-transparent rounded-full animate-spin" />
+                <span className="text-xs font-mono text-slate-500">Running compliance audit...</span>
+              </div>
+            ) : totalItems === 0 ? (
+              <div className="p-16 text-center space-y-2">
+                <div className="inline-flex p-3 bg-emerald-500/10 text-emerald-400 rounded-xl mb-2">
+                  <CheckCircle2 className="h-6 w-6" />
+                </div>
+                <p className="text-slate-200 text-xs font-bold">No security vulnerabilities found.</p>
+                <p className="text-slate-500 text-[10px] max-w-sm mx-auto leading-normal">
+                  Your uploaded configurations passed all integrated security rule reviews successfully.
+                </p>
+              </div>
+            ) : (
+              <div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="border-b border-white/5 bg-slate-950/40 text-[9px] font-bold text-slate-500 uppercase tracking-widest font-mono">
+                        <th className="py-3 px-6">Severity</th>
+                        <th className="py-3 px-6">Vulnerability / Resource</th>
+                        <th className="py-3 px-6">Description</th>
+                        <th className="py-3 px-6">Remediation Recommendation</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-white/[0.02]">
+                      {paginatedFindings.map((finding) => (
+                        <tr key={finding.id} className="hover:bg-white/[0.01] transition-all text-xs text-slate-350 align-top">
+                          <td className="py-4 px-6 shrink-0">
+                            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider ${
+                              finding.severity === 'Critical' 
+                                ? 'bg-rose-500/15 text-rose-400 border border-rose-500/20' 
+                                : finding.severity === 'High' 
+                                ? 'bg-amber-500/15 text-amber-400 border border-amber-500/20' 
+                                : finding.severity === 'Medium' 
+                                ? 'bg-yellow-500/15 text-yellow-300 border border-yellow-500/20' 
+                                : 'bg-blue-500/15 text-blue-400 border border-blue-500/20'
+                            }`}>
+                              {finding.severity}
+                            </span>
+                          </td>
+                          <td className="py-4 px-6 max-w-[200px]">
+                            <div className="font-bold text-slate-200 leading-snug">{finding.title}</div>
+                            <div className="text-[10px] text-slate-500 font-mono mt-1 select-all truncate" title={finding.resource_name}>
+                              {finding.resource_name}
+                            </div>
+                            <div className="text-[8px] text-slate-600 font-mono uppercase tracking-wide mt-0.5">
+                              Type: {finding.resource_type}
+                            </div>
+                          </td>
+                          <td className="py-4 px-6 text-slate-400 leading-relaxed max-w-[320px]">
+                            {finding.description}
+                          </td>
+                          <td className="py-4 px-6 bg-white/[0.01] text-slate-300 leading-relaxed max-w-[320px]">
+                            <span className="text-[9px] font-bold text-slate-400 block mb-1 uppercase tracking-widest font-mono">Action Item:</span>
+                            {finding.recommendation}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Shared Pagination Controls */}
+                {renderPaginationControls()}
+              </div>
+            )
           )}
-
         </div>
-
       </div>
-
     </div>
   );
+
+  // Render pagination control blocks helper
+  function renderPaginationControls() {
+    return (
+      <div className="p-4 border-t border-white/5 bg-slate-950/20 flex items-center justify-between">
+        <span className="text-[10px] text-slate-550 font-mono">
+          Showing {totalItems === 0 ? 0 : (currentPage - 1) * itemsPerPage + 1} to {Math.min(currentPage * itemsPerPage, totalItems)} of {totalItems} items
+        </span>
+        
+        <div className="flex items-center gap-1.5">
+          <button
+            onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+            disabled={currentPage === 1}
+            className="p-1.5 bg-white/5 border border-white/10 hover:bg-white/10 rounded-lg text-slate-400 hover:text-white transition-all disabled:opacity-30 disabled:pointer-events-none cursor-pointer"
+          >
+            <ChevronLeft className="h-3.5 w-3.5" />
+          </button>
+          <span className="text-[10px] text-slate-400 font-mono font-semibold px-2">
+            Page {currentPage} of {totalPages}
+          </span>
+          <button
+            onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+            disabled={currentPage === totalPages}
+            className="p-1.5 bg-white/5 border border-white/10 hover:bg-white/10 rounded-lg text-slate-400 hover:text-white transition-all disabled:opacity-30 disabled:pointer-events-none cursor-pointer"
+          >
+            <ChevronRight className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      </div>
+    );
+  }
 }

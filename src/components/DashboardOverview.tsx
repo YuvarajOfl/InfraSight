@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { 
@@ -11,8 +11,44 @@ import {
 } from 'lucide-react';
 
 export function DashboardOverview() {
-  const { user } = useAuth();
+  const { user, token } = useAuth();
   const navigate = useNavigate();
+
+  const [filesCount, setFilesCount] = useState<number>(0);
+  const [findingsCount, setFindingsCount] = useState<number>(0);
+  const [loading, setLoading] = useState<boolean>(true);
+
+  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        const headers = { 'Authorization': `Bearer ${token}` };
+        
+        // Fetch files count
+        const filesRes = await fetch(`${API_URL}/api/files`, { headers });
+        if (filesRes.ok) {
+          const filesData = await filesRes.json();
+          setFilesCount(filesData.length);
+        }
+        
+        // Fetch findings count
+        const findingsRes = await fetch(`${API_URL}/api/findings`, { headers });
+        if (findingsRes.ok) {
+          const findingsData = await findingsRes.json();
+          setFindingsCount(findingsData.length);
+        }
+      } catch (err) {
+        console.error("Failed to fetch dashboard stats", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (token) {
+      fetchStats();
+    }
+  }, [token]);
 
   return (
     <div className="max-w-6xl mx-auto space-y-8 animate-fade-in">
@@ -82,22 +118,25 @@ export function DashboardOverview() {
               <FileCode className="h-5 w-5" />
             </div>
             <span className="text-xs font-bold text-slate-200">Terraform Files</span>
-            <p className="text-[11px] text-slate-500 mt-1.5 leading-relaxed px-4">
-              Click to open Analyzer and upload configurations.
+            <p className="text-[11px] text-slate-500 mt-1.5 leading-relaxed px-4 text-center">
+              {loading ? "Loading..." : filesCount > 0 ? `${filesCount} State File(s) Parsed` : "No state files uploaded"}
             </p>
             <div className="absolute inset-x-0 bottom-0 h-1 bg-gradient-to-r from-blue-500 to-indigo-500 opacity-0 group-hover:opacity-100 transition-opacity" />
           </div>
 
           {/* state: Security Findings */}
-          <div className="p-5 bg-white/[0.01] border border-white/5 hover:border-white/10 rounded-2xl flex flex-col items-center justify-center text-center min-h-[160px] transition-all group relative overflow-hidden">
-            <div className="p-3 bg-white/5 text-slate-400 rounded-xl group-hover:scale-105 transition-transform mb-4">
+          <div 
+            onClick={() => navigate('/dashboard/analyzer')}
+            className="p-5 bg-white/[0.01] border border-white/5 hover:border-rose-500/20 rounded-2xl flex flex-col items-center justify-center text-center min-h-[160px] transition-all group relative overflow-hidden cursor-pointer hover:bg-slate-900/25"
+          >
+            <div className="p-3 bg-white/5 text-slate-400 rounded-xl group-hover:scale-105 transition-transform mb-4 group-hover:text-rose-400 group-hover:bg-rose-500/10">
               <ShieldAlert className="h-5 w-5" />
             </div>
             <span className="text-xs font-bold text-slate-200">Security Findings</span>
-            <p className="text-[11px] text-slate-500 mt-1.5 leading-relaxed px-4">
-              Requires active scanning from the analyzer.
+            <p className="text-[11px] text-slate-500 mt-1.5 leading-relaxed px-4 text-center">
+              {loading ? "Loading..." : findingsCount > 0 ? `${findingsCount} Vulnerability Finding(s)` : "No vulnerabilities detected"}
             </p>
-            <div className="absolute inset-x-0 bottom-0 h-1 bg-gradient-to-r from-indigo-500 to-purple-500 opacity-0 group-hover:opacity-100 transition-opacity" />
+            <div className="absolute inset-x-0 bottom-0 h-1 bg-gradient-to-r from-rose-500 to-purple-500 opacity-0 group-hover:opacity-100 transition-opacity" />
           </div>
 
           {/* state: Drift Results */}
@@ -106,20 +145,23 @@ export function DashboardOverview() {
               <GitCompare className="h-5 w-5" />
             </div>
             <span className="text-xs font-bold text-slate-200">Drift Results</span>
-            <p className="text-[11px] text-slate-500 mt-1.5 leading-relaxed px-4">
-              Requires state drift scan validation.
+            <p className="text-[11px] text-slate-500 mt-1.5 leading-relaxed px-4 text-center">
+              Drift verification inactive
             </p>
             <div className="absolute inset-x-0 bottom-0 h-1 bg-gradient-to-r from-purple-500 to-pink-500 opacity-0 group-hover:opacity-100 transition-opacity" />
           </div>
 
           {/* state: Reports */}
-          <div className="p-5 bg-white/[0.01] border border-white/5 hover:border-white/10 rounded-2xl flex flex-col items-center justify-center text-center min-h-[160px] transition-all group relative overflow-hidden">
-            <div className="p-3 bg-white/5 text-slate-400 rounded-xl group-hover:scale-105 transition-transform mb-4">
+          <div 
+            onClick={() => navigate('/dashboard/analyzer')}
+            className="p-5 bg-white/[0.01] border border-white/5 hover:border-pink-500/20 rounded-2xl flex flex-col items-center justify-center text-center min-h-[160px] transition-all group relative overflow-hidden cursor-pointer hover:bg-slate-900/25"
+          >
+            <div className="p-3 bg-white/5 text-slate-400 rounded-xl group-hover:scale-105 transition-transform mb-4 group-hover:text-pink-400 group-hover:bg-pink-500/10">
               <FileText className="h-5 w-5" />
             </div>
             <span className="text-xs font-bold text-slate-200">Reports</span>
-            <p className="text-[11px] text-slate-500 mt-1.5 leading-relaxed px-4">
-              Generate PDF summaries from the scan reports.
+            <p className="text-[11px] text-slate-500 mt-1.5 leading-relaxed px-4 text-center">
+              {loading ? "Loading..." : filesCount > 0 ? `${filesCount} PDF Report(s) Available` : "No reports generated"}
             </p>
             <div className="absolute inset-x-0 bottom-0 h-1 bg-gradient-to-r from-pink-500 to-blue-500 opacity-0 group-hover:opacity-100 transition-opacity" />
           </div>

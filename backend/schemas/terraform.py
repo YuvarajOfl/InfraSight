@@ -16,6 +16,22 @@ class TerraformResourceResponse(BaseModel):
         from_attributes = True
 
 
+class SecurityFindingResponse(BaseModel):
+    id: int
+    user_id: int
+    file_id: int
+    resource_name: str
+    resource_type: str
+    severity: str
+    title: str
+    description: str
+    recommendation: str
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
 class TerraformFileResponse(BaseModel):
     id: int
     user_id: int
@@ -24,6 +40,7 @@ class TerraformFileResponse(BaseModel):
     upload_time: datetime
     status: str
     resources: List[TerraformResourceResponse] = []
+    findings: List[SecurityFindingResponse] = []
 
     class Config:
         from_attributes = True

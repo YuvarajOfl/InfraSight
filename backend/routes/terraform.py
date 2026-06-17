@@ -1,12 +1,15 @@
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, status
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from typing import List
 
 from backend.database.session import get_db
 from backend.models.user import User
 from backend.routes.auth import get_current_user
-from backend.schemas.terraform import TerraformFileResponse, TerraformResourceResponse
+from backend.schemas.terraform import TerraformFileResponse, TerraformResourceResponse, SecurityFindingResponse
 from backend.services import terraform_service
+from backend.models.terraform import SecurityFinding
+from backend.services.report_service import generate_pdf_report
 
 router = APIRouter(prefix="/api", tags=["Terraform Analyzer"])
 
@@ -94,3 +97,70 @@ async def get_resources_by_file(
             detail="File not found or access denied."
         )
     return terraform_service.get_file_resources(db, file_id, current_user.id)
+
+
+@router.get("/findings", response_model=List[SecurityFindingResponse])
+async def get_all_findings(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Returns all parsed security findings for all files uploaded by the logged-in user.
+    """
+    return db.query(SecurityFinding).filter(SecurityFinding.user_id == current_user.id).order_by(SecurityFinding.created_at.desc()).all()
+
+
+@router.get("/findings/{file_id}", response_model=List[SecurityFindingResponse])
+async def get_findings_by_file(
+    file_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Returns all security findings discovered in a specific Terraform file.
+    """
+    # Verify file ownership
+    file_record = terraform_service.get_file_by_id(db, file_id, current_user.id)
+    if not file_record:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="File not found or access denied."
+        )
+    return db.query(SecurityFinding).filter(SecurityFinding.file_id == file_id, SecurityFinding.user_id == current_user.id).order_by(SecurityFinding.created_at.desc()).all()
+
+
+@router.get("/reports/download/{file_id}")
+async def download_pdf_report(
+    file_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Generates and downloads a compliance PDF report of security findings for a specific Terraform file.
+    """
+    # Verify file ownership
+    file_record = terraform_service.get_file_by_id(db, file_id, current_user.id)
+    if not file_record:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="File not found or access denied."
+        )
+        
+    try:
+        pdf_buffer = generate_pdf_report(db, file_record)
+        # Format nice safe name
+        safe_name = file_record.file_name.replace(" ", "_").replace("..", "")
+        if safe_name.endswith(".tfstate"):
+            safe_name = safe_name[:-8]
+        elif safe_name.endswith(".json"):
+            safe_name = safe_name[:-5]
+            
+        headers = {
+            'Content-Disposition': f'attachment; filename="infrasight_report_{safe_name}.pdf"'
+        }
+        return StreamingResponse(pdf_buffer, media_type="application/pdf", headers=headers)
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to generate PDF compliance report: {str(e)}"
+        )

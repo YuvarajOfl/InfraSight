@@ -7,7 +7,7 @@ from backend.config.settings import settings
 from backend.database.session import engine, Base
 # Import models to ensure they are registered on Base for table creation
 from backend.models.user import User
-from backend.models.terraform import TerraformFile, TerraformResource
+from backend.models.terraform import TerraformFile, TerraformResource, SecurityFinding
 from backend.routes.auth import router as auth_router
 from backend.routes.health import router as health_router
 from backend.routes.terraform import router as terraform_router

@@ -171,6 +171,13 @@ def validate_and_parse_terraform(db: Session, user_id: int, file_name: str, file
                     
         if resources_to_insert:
             db.add_all(resources_to_insert)
+            db.commit()
+            
+            try:
+                from backend.services.scanner_service import run_security_scan
+                run_security_scan(db=db, file_id=db_file.id, user_id=user_id, resources=resources_to_insert)
+            except Exception as scan_err:
+                logger.error(f"Failed to scan resources for file #{db_file.id}: {scan_err}")
             
         db_file.status = "parsed"
         db.commit()
