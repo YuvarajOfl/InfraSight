@@ -90,3 +90,11 @@ async def logout(current_user: User = Depends(get_current_user)):
         "success": True,
         "message": f"Successfully logged out user: {current_user.email}"
     }
+
+@router.get("/config")
+async def get_auth_config():
+    """
+    Returns public Google Client ID configuration required by the frontend login flow.
+    """
+    from backend.config.settings import settings
+    return {"google_client_id": settings.GOOGLE_CLIENT_ID}

@@ -4,7 +4,10 @@ import { useAuth } from './context/AuthContext';
 import { LoginPage } from './components/LoginPage';
 import { DashboardLayout } from './components/DashboardLayout';
 import { DashboardOverview } from './components/DashboardOverview';
-import { TerraformAnalyzer } from './components/TerraformAnalyzer';
+import { TerraformFiles } from './components/TerraformFiles';
+import { InfrastructureAnalysis } from './components/InfrastructureAnalysis';
+import { AIAdvisor } from './components/AIAdvisor';
+import { Reports } from './components/Reports';
 
 // Protected Route wrapper component
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -46,7 +49,10 @@ export default function App() {
         } 
       >
         <Route index element={<DashboardOverview />} />
-        <Route path="analyzer" element={<TerraformAnalyzer />} />
+        <Route path="files" element={<TerraformFiles />} />
+        <Route path="analysis" element={<InfrastructureAnalysis />} />
+        <Route path="ai" element={<AIAdvisor />} />
+        <Route path="reports" element={<Reports />} />
       </Route>
       <Route 
         path="*" 

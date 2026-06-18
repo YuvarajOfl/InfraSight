@@ -83,4 +83,21 @@ class AIInsight(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
 
+class ReportHistory(Base):
+    __tablename__ = "reports"
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    file_id = Column(Integer, ForeignKey("terraform_files.id", ondelete="CASCADE"), nullable=True)
+    report_name = Column(String(255), nullable=False)
+    report_type = Column(String(100), nullable=False)
+    file_path = Column(String(1024), nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    # Relationships
+    user = relationship("User", back_populates="reports")
+    file = relationship("TerraformFile")
+
+
+
 

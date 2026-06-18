@@ -6,7 +6,10 @@ import {
   LogOut, 
   LayoutDashboard,
   ShieldCheck,
-  FileCode
+  FileCode,
+  ShieldAlert,
+  Sparkles,
+  FileText
 } from 'lucide-react';
 
 export function DashboardLayout() {
@@ -56,11 +59,11 @@ export function DashboardLayout() {
                 }
               >
                 <LayoutDashboard className="h-4 w-4 text-blue-400" />
-                <span>Overview Dashboard</span>
+                <span>Dashboard</span>
               </NavLink>
 
               <NavLink 
-                to="/dashboard/analyzer" 
+                to="/dashboard/files" 
                 className={({ isActive }) => 
                   `w-full flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-semibold tracking-wide transition-all ${
                     isActive 
@@ -70,7 +73,49 @@ export function DashboardLayout() {
                 }
               >
                 <FileCode className="h-4 w-4 text-indigo-400" />
-                <span>Terraform Analyzer</span>
+                <span>Terraform Files</span>
+              </NavLink>
+
+              <NavLink 
+                to="/dashboard/analysis" 
+                className={({ isActive }) => 
+                  `w-full flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-semibold tracking-wide transition-all ${
+                    isActive 
+                      ? 'bg-white/5 border border-white/10 text-white shadow-inner' 
+                      : 'hover:bg-white/[0.02] border border-transparent text-slate-400 hover:text-slate-200'
+                  }`
+                }
+              >
+                <ShieldAlert className="h-4 w-4 text-rose-400" />
+                <span>Infrastructure Analysis</span>
+              </NavLink>
+
+              <NavLink 
+                to="/dashboard/ai" 
+                className={({ isActive }) => 
+                  `w-full flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-semibold tracking-wide transition-all ${
+                    isActive 
+                      ? 'bg-white/5 border border-white/10 text-white shadow-inner' 
+                      : 'hover:bg-white/[0.02] border border-transparent text-slate-400 hover:text-slate-200'
+                  }`
+                }
+              >
+                <Sparkles className="h-4 w-4 text-cyan-400" />
+                <span>AI Advisor</span>
+              </NavLink>
+
+              <NavLink 
+                to="/dashboard/reports" 
+                className={({ isActive }) => 
+                  `w-full flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-semibold tracking-wide transition-all ${
+                    isActive 
+                      ? 'bg-white/5 border border-white/10 text-white shadow-inner' 
+                      : 'hover:bg-white/[0.02] border border-transparent text-slate-400 hover:text-slate-200'
+                  }`
+                }
+              >
+                <FileText className="h-4 w-4 text-pink-400" />
+                <span>Reports</span>
               </NavLink>
             </div>
           </div>
@@ -79,7 +124,7 @@ export function DashboardLayout() {
           <div className="p-4 border-t border-white/5 bg-slate-900/10">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <div className="h-7 w-7 rounded-full bg-blue-950 border border-blue-500/30 flex items-center justify-center text-[10px] text-blue-400 font-bold overflow-hidden shadow-inner">
+                <div className="h-7 w-7 rounded-full bg-blue-950 border-2 border-blue-500/20 p-0.5 flex items-center justify-center overflow-hidden shadow-2xl">
                   {user?.profile_picture ? (
                     <img src={user.profile_picture} alt="Profile" className="h-full w-full object-cover" />
                   ) : (
@@ -93,7 +138,7 @@ export function DashboardLayout() {
               </div>
               <button
                 onClick={logout}
-                className="p-1.5 hover:bg-rose-500/10 border border-transparent hover:border-rose-900/30 text-slate-400 hover:text-rose-400 rounded-lg transition-colors cursor-pointer"
+                className="p-1.5 hover:bg-rose-500/10 border border-transparent hover:border-rose-900/30 text-slate-400 hover:text-rose-450 rounded-lg transition-colors cursor-pointer"
                 title="Sign out of control tower"
               >
                 <LogOut className="h-3.5 w-3.5" />

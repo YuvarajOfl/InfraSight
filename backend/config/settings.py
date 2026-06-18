@@ -15,21 +15,27 @@ class Settings(BaseSettings):
     DB_NAME: str = "infrasight"
 
     # JWT Configuration
-    JWT_SECRET: str = "43b1c1e5a5f4fcd3116df1b3152a5170d742617f698e82ef6fae54ab0d45bf86"
+    JWT_SECRET: str = ""
     JWT_ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440
 
     # Google OAuth Configuration
     GOOGLE_CLIENT_ID: str = ""
+    GOOGLE_CLIENT_SECRET: str = ""
 
     # Gemini API Key Configuration
     GEMINI_API_KEY: str = ""
+
+    # Database URL direct override
+    DATABASE_URL: str = ""
 
     # CORS Configuration
     CORS_ORIGINS: str = "http://localhost:3000,http://127.0.0.1:3000,http://localhost:5173"
 
     @property
     def database_url(self) -> str:
+        if self.DATABASE_URL:
+            return self.DATABASE_URL
         return f"mysql+pymysql://{self.DB_USER}:{self.DB_PASSWORD}@{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}"
 
     @property

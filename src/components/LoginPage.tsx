@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { motion } from 'motion/react';
 import { 
   Shield, 
   GitCompare, 
@@ -8,29 +7,36 @@ import {
   Lock, 
   Sparkles, 
   AlertCircle,
-  HelpCircle,
-  Settings
+  HelpCircle
 } from 'lucide-react';
 
 export function LoginPage() {
   const { loginWithGoogleToken, isLoading: authLoading } = useAuth();
   const [error, setError] = useState<string | null>(null);
-  
-  // Custom Google Client ID state loaded from env or localStorage
-  const [clientIdInput, setClientIdInput] = useState(localStorage.getItem('cg_google_client_id') || '');
-  const [activeClientId, setActiveClientId] = useState(
-    localStorage.getItem('cg_google_client_id') || 
-    import.meta.env.VITE_GOOGLE_CLIENT_ID || 
-    ''
-  );
-  
-  const [showConfig, setShowConfig] = useState(false);
+  const [activeClientId, setActiveClientId] = useState<string>(import.meta.env.VITE_GOOGLE_CLIENT_ID || '');
 
-  // Load Google SDK and initialize on mount/client ID change
+  useEffect(() => {
+    const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+    const fetchConfig = async () => {
+      try {
+        const response = await fetch(`${API_URL}/auth/config`);
+        if (response.ok) {
+          const data = await response.json();
+          if (data.google_client_id) {
+            setActiveClientId(data.google_client_id);
+          }
+        }
+      } catch (err) {
+        console.error("Failed to load Google client ID from backend configuration:", err);
+      }
+    };
+    fetchConfig();
+  }, []);
+
+  // Load Google SDK and initialize on activeClientId change
   useEffect(() => {
     if (!activeClientId) return;
 
-    // Remove existing script if any to prevent duplicate initialization errors
     const existingScript = document.getElementById('google-gsi-client');
     if (existingScript) {
       initializeGoogleSignIn();
@@ -77,14 +83,14 @@ export function LoginPage() {
     }
   };
 
-  // Re-render button if SDK is loaded but button element just became visible
+  // Re-render button if SDK is loaded
   useEffect(() => {
     if (activeClientId) {
       setTimeout(() => {
         initializeGoogleSignIn();
       }, 150);
     }
-  }, [activeClientId, showConfig]);
+  }, [activeClientId]);
 
   const handleCredentialResponse = async (response: any) => {
     setError(null);
@@ -93,20 +99,6 @@ export function LoginPage() {
     } catch (err: any) {
       console.error('Google Auth backend validation error:', err);
       setError(err.message || 'Google Authentication failed. Verify backend is running.');
-    }
-  };
-
-  const handleSaveClientId = (e: React.FormEvent) => {
-    e.preventDefault();
-    const cleanId = clientIdInput.trim();
-    if (cleanId) {
-      localStorage.setItem('cg_google_client_id', cleanId);
-      setActiveClientId(cleanId);
-      setError(null);
-      setShowConfig(false);
-    } else {
-      localStorage.removeItem('cg_google_client_id');
-      setActiveClientId(import.meta.env.VITE_GOOGLE_CLIENT_ID || '');
     }
   };
 
@@ -126,17 +118,9 @@ export function LoginPage() {
           </div>
           <div>
             <span className="font-bold text-white tracking-tight text-lg">InfraSight</span>
-            <span className="text-[8px] text-slate-500 font-semibold tracking-widest block font-mono uppercase">Security & Drift control</span>
+            <span className="text-[8px] text-slate-500 font-semibold tracking-widest block font-mono uppercase">Security & Cost Control</span>
           </div>
         </div>
-        
-        <button
-          onClick={() => setShowConfig(!showConfig)}
-          className="text-xs text-slate-400 hover:text-white flex items-center gap-1.5 px-3 py-1.5 bg-white/5 border border-white/10 rounded-lg transition-colors cursor-pointer"
-        >
-          <Settings className="h-3.5 w-3.5" />
-          <span>Configure OAuth</span>
-        </button>
       </header>
 
       {/* Main Form container */}
@@ -152,11 +136,11 @@ export function LoginPage() {
           <h1 className="text-4xl sm:text-5xl font-extrabold tracking-tight text-white leading-tight">
             InfraSight
           </h1>
-          <h2 className="text-xl sm:text-2xl font-bold text-blue-450 text-indigo-400">
+          <h2 className="text-xl sm:text-2xl font-bold text-indigo-400">
             Understand Infrastructure Before Deployment
           </h2>
           <p className="text-sm sm:text-base text-slate-400 leading-relaxed">
-            Analyze Terraform infrastructure, estimate costs, identify security risks, detect configuration drift, and generate downloadable reports.
+            Analyze Terraform infrastructure, estimate costs, identify security risks, and generate AI recommendations with compliance reports.
           </p>
 
           {/* Features Preview Cards */}
@@ -168,7 +152,7 @@ export function LoginPage() {
               </div>
               <h3 className="text-xs font-bold text-white uppercase tracking-wider font-mono">Security Analysis</h3>
               <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">
-                Scan HCL components for misconfigurations and vulnerable subnets.
+                Scan Terraform files for misconfigurations and vulnerable settings.
               </p>
             </div>
 
@@ -176,9 +160,9 @@ export function LoginPage() {
               <div className="p-2 bg-indigo-950/40 text-indigo-400 rounded-lg w-fit mb-3">
                 <GitCompare className="h-4.5 w-4.5" />
               </div>
-              <h3 className="text-xs font-bold text-white uppercase tracking-wider font-mono">Drift Detection</h3>
+              <h3 className="text-xs font-bold text-white uppercase tracking-wider font-mono">Cost Control</h3>
               <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">
-                Compare HCL states against active deployments.
+                Detect idle servers, oversized tiers, and potential optimizations.
               </p>
             </div>
 
@@ -186,9 +170,9 @@ export function LoginPage() {
               <div className="p-2 bg-purple-950/40 text-purple-400 rounded-lg w-fit mb-3">
                 <FileText className="h-4.5 w-4.5" />
               </div>
-              <h3 className="text-xs font-bold text-white uppercase tracking-wider font-mono">PDF Reports</h3>
+              <h3 className="text-xs font-bold text-white uppercase tracking-wider font-mono">Compliance PDF</h3>
               <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">
-                Generate downloadable summaries for auditor compliance checks.
+                Generate executive summaries, security audits, and complete reports.
               </p>
             </div>
             
@@ -210,81 +194,17 @@ export function LoginPage() {
             </div>
           )}
 
-          {/* Config form overlay */}
-          {showConfig ? (
-            <form onSubmit={handleSaveClientId} className="space-y-4">
-              <div className="space-y-1.5 text-left">
-                <label className="text-[10px] uppercase font-bold tracking-wider text-slate-400 block font-mono">Google Client ID</label>
-                <input
-                  type="text"
-                  placeholder="e.g. xxxxx.apps.googleusercontent.com"
-                  value={clientIdInput}
-                  onChange={(e) => setClientIdInput(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-900 border border-white/10 rounded-lg text-xs text-slate-200 focus:outline-none focus:border-blue-500"
-                />
-              </div>
-              <div className="flex gap-2">
-                <button
-                  type="submit"
-                  className="flex-1 py-2 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-lg transition-colors cursor-pointer"
-                >
-                  Save Configuration
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setShowConfig(false)}
-                  className="px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-xs text-slate-300 transition-colors cursor-pointer"
-                >
-                  Cancel
-                </button>
-              </div>
-            </form>
-          ) : (
-            <div className="space-y-4 py-4 flex flex-col items-center w-full">
-              {activeClientId ? (
-                <div className="space-y-4 w-full flex flex-col items-center">
-                  {authLoading ? (
-                    <div className="flex flex-col items-center gap-2">
-                      <div className="h-8 w-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
-                      <span className="text-xs font-mono text-slate-400">Verifying session token...</span>
-                    </div>
-                  ) : (
-                    <div className="space-y-4 w-full flex flex-col items-center">
-                      <div id="google-signin-button" className="relative z-20 min-h-[40px] flex items-center justify-center" />
-                      <button
-                        type="button"
-                        onClick={async () => {
-                          setError(null);
-                          try {
-                            await loginWithGoogleToken("sandbox_developer_token");
-                          } catch (err: any) {
-                            setError(err.message || "Sandbox login failed.");
-                          }
-                        }}
-                        className="text-[11px] text-slate-400 hover:text-emerald-450 underline transition-colors cursor-pointer font-semibold"
-                      >
-                        Or access via Demo Sandbox
-                      </button>
-                    </div>
-                  )}
-                  <p className="text-[10px] text-slate-500 text-center flex items-center gap-1 justify-center max-w-xs">
-                    <Lock className="h-3 w-3 text-emerald-500" />
-                    Secure OAuth payload processing handled server-side
-                  </p>
-                </div>
-              ) : (
-                <div className="text-center p-6 bg-amber-500/5 border border-amber-500/10 rounded-xl space-y-3.5 w-full flex flex-col items-center">
-                  <p className="text-xs text-amber-300 leading-normal">
-                    Google OAuth Client ID is not configured yet. 
-                  </p>
-                  <div className="flex flex-col sm:flex-row gap-2 w-full justify-center">
-                    <button
-                      type="button"
-                      onClick={() => setShowConfig(true)}
-                      className="px-4 py-2 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 text-amber-300 font-bold text-xs rounded-lg transition-colors cursor-pointer flex-1"
-                    >
-                      Set Google Client ID
-                    </button>
+          <div className="space-y-4 py-4 flex flex-col items-center w-full">
+            {activeClientId ? (
+              <div className="space-y-4 w-full flex flex-col items-center">
+                {authLoading ? (
+                  <div className="flex flex-col items-center gap-2">
+                    <div className="h-8 w-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
+                    <span className="text-xs font-mono text-slate-400">Verifying session token...</span>
+                  </div>
+                ) : (
+                  <div className="space-y-4 w-full flex flex-col items-center">
+                    <div id="google-signin-button" className="relative z-20 min-h-[40px] flex items-center justify-center" />
                     <button
                       type="button"
                       onClick={async () => {
@@ -295,24 +215,47 @@ export function LoginPage() {
                           setError(err.message || "Sandbox login failed.");
                         }
                       }}
-                      className="px-4 py-2 bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 text-emerald-300 font-bold text-xs rounded-lg transition-colors cursor-pointer flex-1"
+                      className="text-[11px] text-slate-405 text-indigo-400 hover:text-indigo-300 underline transition-colors cursor-pointer font-semibold"
                     >
-                      Demo Sandbox Access
+                      Or access via Demo Sandbox
                     </button>
                   </div>
-                </div>
-              )}
-            </div>
-
-          )}
+                )}
+                <p className="text-[10px] text-slate-500 text-center flex items-center gap-1 justify-center max-w-xs">
+                  <Lock className="h-3 w-3 text-emerald-500" />
+                  Secure OAuth payload processing handled server-side
+                </p>
+              </div>
+            ) : (
+              <div className="text-center p-6 bg-amber-500/5 border border-amber-500/10 rounded-xl space-y-3.5 w-full flex flex-col items-center">
+                <p className="text-xs text-amber-300 leading-normal">
+                  Google OAuth Client ID is not configured in environment. 
+                </p>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    setError(null);
+                    try {
+                      await loginWithGoogleToken("sandbox_developer_token");
+                    } catch (err: any) {
+                      setError(err.message || "Sandbox login failed.");
+                    }
+                  }}
+                  className="px-6 py-2.5 bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 text-emerald-350 font-bold text-xs rounded-lg transition-colors cursor-pointer w-full"
+                >
+                  Access via Demo Sandbox
+                </button>
+              </div>
+            )}
+          </div>
 
           {/* Setup tips */}
           <div className="p-4 bg-slate-900/40 border border-white/5 rounded-xl space-y-2 text-left">
             <span className="text-[9px] uppercase font-bold text-indigo-400 tracking-wider font-mono flex items-center gap-1">
               <HelpCircle className="h-3 w-3" /> Technical setup guidance
             </span>
-            <p className="text-[10px] text-slate-500 leading-relaxed">
-              Register a Google Web Application client ID in your Google Cloud Console. Set Authorized JavaScript Origins to <code className="text-slate-350">http://localhost:3000</code>.
+            <p className="text-[10px] text-slate-505 text-slate-400 leading-relaxed">
+              Google client ID configurations must be loaded via <code className="text-slate-300">VITE_GOOGLE_CLIENT_ID</code> env. Sandbox access is available for direct evaluation.
             </p>
           </div>
 
@@ -322,7 +265,7 @@ export function LoginPage() {
       {/* Footer bar */}
       <footer className="w-full h-12 border-t border-white/5 bg-slate-950/30 flex items-center justify-between px-6 sm:px-12 text-[10px] text-slate-500 relative z-10">
         <span>© 2026 InfraSight Platform. All rights reserved.</span>
-        <span className="font-mono uppercase tracking-wider text-[8px] bg-slate-900 border border-white/5 rounded px-1.5 py-0.5">Sprint: Auth & Identity</span>
+        <span className="font-mono uppercase tracking-wider text-[8px] bg-slate-900 border border-white/5 rounded px-1.5 py-0.5">Sprint: Refactoring v2.0</span>
       </footer>
 
     </div>

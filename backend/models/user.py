@@ -16,4 +16,5 @@ class User(Base):
 
     # Relationships
     files = relationship("TerraformFile", back_populates="user", cascade="all, delete-orphan")
+    reports = relationship("ReportHistory", back_populates="user", cascade="all, delete-orphan")
 

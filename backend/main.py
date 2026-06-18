@@ -7,7 +7,7 @@ from backend.config.settings import settings
 from backend.database.session import engine, Base
 # Import models to ensure they are registered on Base for table creation
 from backend.models.user import User
-from backend.models.terraform import TerraformFile, TerraformResource, SecurityFinding, AIInsight
+from backend.models.terraform import TerraformFile, TerraformResource, SecurityFinding, AIInsight, ReportHistory
 from backend.routes.auth import router as auth_router
 from backend.routes.health import router as health_router
 from backend.routes.terraform import router as terraform_router
@@ -25,13 +25,17 @@ logging.basicConfig(
 )
 logger = logging.getLogger("backend")
 
-# Automatically generate database tables on startup
+# Automatically generate database tables and directories on startup
 try:
     logger.info("Initializing database schemas...")
     Base.metadata.create_all(bind=engine)
     logger.info("Database tables initialized successfully.")
+    
+    # Ensure reports output folder exists
+    import os
+    os.makedirs(os.path.join("uploads", "reports"), exist_ok=True)
 except Exception as e:
-    logger.error(f"Failed to initialize database tables: {e}. If using MySQL, verify settings in .env.")
+    logger.error(f"Failed to initialize database tables or directories: {e}. If using MySQL, verify settings in .env.")
 
 # Initialize FastAPI application
 app = FastAPI(
