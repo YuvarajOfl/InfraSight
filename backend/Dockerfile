@@ -33,8 +33,8 @@ RUN groupadd -g 10001 appgroup && \
 # Copy application source code into the package path /app/backend
 COPY . /app/backend
 
-# Fix directory ownership
-RUN chown -R appuser:appgroup /app
+# Create database directory and fix directory ownership
+RUN mkdir -p /app/data && chown -R appuser:appgroup /app
 
 # Switch to the non-root user
 USER appuser

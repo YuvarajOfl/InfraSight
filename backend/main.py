@@ -3,6 +3,16 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import logging
 
+# Configure structured logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    handlers=[
+        logging.StreamHandler()
+    ]
+)
+logger = logging.getLogger("backend")
+
 from backend.config.settings import settings
 from backend.database.session import engine, Base
 # Import models to ensure they are registered on Base for table creation
@@ -13,17 +23,6 @@ from backend.routes.health import router as health_router
 from backend.routes.terraform import router as terraform_router
 from backend.routes.ai import router as ai_router
 from backend.middleware.error_handler import setup_exception_handlers
-
-
-# Configure structured logging
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-    handlers=[
-        logging.StreamHandler()
-    ]
-)
-logger = logging.getLogger("backend")
 
 # Automatically generate database tables and directories on startup
 try:

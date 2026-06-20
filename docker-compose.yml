@@ -26,7 +26,7 @@ services:
       - "8000:8000"
     volumes:
       - ./backend:/app/backend
-      - ./database:/app/database
+      - infrasight_data:/app/data
     environment:
       - DB_HOST=db
       - DB_USER=root
@@ -58,3 +58,4 @@ services:
 
 volumes:
   mysql_data:
+  infrasight_data:
