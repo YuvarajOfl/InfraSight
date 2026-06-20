@@ -17,7 +17,7 @@ services:
       start_period: 10s
 
   backend:
-    image: yuvarajofl/infrasight-backend:latest
+    image: ${DOCKERHUB_USERNAME:-yuvarajofl}/infrasight-backend:${IMAGE_TAG:-latest}
     container_name: infrasight-backend-prod
     restart: always
     ports:
@@ -32,18 +32,20 @@ services:
       - DB_PORT=3306
       - DB_NAME=infrasight
       - APP_ENV=production
-    env_file:
-      - ./backend/.env
+      - JWT_SECRET=${JWT_SECRET}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
+      - CORS_ORIGINS=${CORS_ORIGINS:-*}
     depends_on:
       db:
         condition: service_healthy
 
   frontend:
-    image: yuvarajofl/infrasight-frontend:latest
+    image: ${DOCKERHUB_USERNAME:-yuvarajofl}/infrasight-frontend:${IMAGE_TAG:-latest}
     container_name: infrasight-frontend-prod
     restart: always
     ports:
-      - "5173:80"
+      - "80:80"
     depends_on:
       - backend
 

@@ -15,7 +15,7 @@ export function LoginPage() {
   const [activeClientId, setActiveClientId] = useState<string>(import.meta.env.VITE_GOOGLE_CLIENT_ID || '');
 
   useEffect(() => {
-    const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+    const API_URL = import.meta.env.VITE_API_URL || (typeof window !== 'undefined' ? `http://${window.location.hostname}:8000` : 'http://localhost:8000');
     const fetchConfig = async () => {
       try {
         const response = await fetch(`${API_URL}/auth/config`);

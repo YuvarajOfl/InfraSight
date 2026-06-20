@@ -106,9 +106,9 @@ def main():
         requests.get(f"{API_URL}/")
     except requests.exceptions.ConnectionError:
         print("Starting FastAPI backend server...")
-        # Start server as subprocess
+        # Start server as subprocess using current system python executable
         proc = subprocess.Popen(
-            [r".\backend\venv\Scripts\python", "-m", "uvicorn", "backend.main:app", "--port", "8000"],
+            [sys.executable, "-m", "uvicorn", "backend.main:app", "--port", "8000"],
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL
         )
