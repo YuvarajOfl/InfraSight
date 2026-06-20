@@ -1,0 +1,17 @@
+# AWS Region to deploy the resources
+aws_region = "ap-south-1"
+
+# Existing EC2 Key Pair Name (Required)
+# Create a key pair in the AWS console first, then provide its name here
+key_name = "infrasight-ssh-key"
+
+# Instance specifications (Free Tier eligible)
+instance_type = "t2.micro"
+
+# Root volume storage block properties
+volume_size = 20
+volume_type = "gp3"
+
+# Metadata tags
+project_name = "infrasight"
+environment  = "production"
