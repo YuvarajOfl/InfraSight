@@ -1,0 +1,6 @@
+aws_region    = "ap-south-1"
+key_name      = "infrasight-key"
+instance_type = "t3.micro"
+volume_size   = 20
+project_name  = "infrasight"
+environment   = "production"
