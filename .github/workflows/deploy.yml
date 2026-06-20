@@ -51,8 +51,7 @@ jobs:
 
       - name: Run Backend Tests
         run: |
-          cd backend
-          python -m pytest tests/
+          PYTHONPATH=. python -m pytest backend/tests/
 
   build-and-push:
     name: Build & Push Docker Images
