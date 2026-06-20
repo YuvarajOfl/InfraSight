@@ -24,8 +24,12 @@ try:
 except Exception as conn_err:
     logger.warning(f"MySQL server connection failed: {conn_err}. Falling back to local SQLite database.")
     # Initialize SQLite database file locally
+    import os
+    db_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "database"))
+    os.makedirs(db_dir, exist_ok=True)
+    db_path = os.path.join(db_dir, "infrasight.db")
     engine = create_engine(
-        "sqlite:///./infrasight.db",
+        f"sqlite:///{db_path}",
         connect_args={"check_same_thread": False}
     )
 
