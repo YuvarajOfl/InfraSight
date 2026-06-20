@@ -79,3 +79,35 @@ def authenticate_google_user(db: Session, google_token: str) -> TokenResponse:
         token_type="bearer",
         user=user
     )
+
+def authenticate_email_user(db: Session, email: str, password: str) -> TokenResponse:
+    """
+    Verifies the email and password, and returns a signed JWT access token and user details.
+    """
+    from backend.utils.security import verify_password
+    user = user_service.get_user_by_email(db, email)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect email or password."
+        )
+
+    if not user.hashed_password or not verify_password(password, user.hashed_password):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect email or password."
+        )
+
+    # Generate signed JWT token
+    token_payload = {
+        "sub": str(user.id),
+        "email": user.email,
+        "name": user.name
+    }
+    access_token = create_access_token(data=token_payload)
+
+    return TokenResponse(
+        access_token=access_token,
+        token_type="bearer",
+        user=user
+    )

@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 from backend.database.session import get_db
-from backend.schemas.auth import GoogleLoginRequest, TokenResponse
+from backend.schemas.auth import GoogleLoginRequest, EmailLoginRequest, TokenResponse
 from backend.schemas.user import UserResponse
 from backend.services import auth_service, user_service
 from backend.utils.jwt import verify_access_token
@@ -98,3 +98,21 @@ async def get_auth_config():
     """
     from backend.config.settings import settings
     return {"google_client_id": settings.GOOGLE_CLIENT_ID}
+
+@router.post("/login", response_model=TokenResponse)
+async def login_with_email(
+    payload: EmailLoginRequest,
+    db: Session = Depends(get_db)
+):
+    """
+    Verifies email and password, and returns a signed JWT access token.
+    """
+    try:
+        return auth_service.authenticate_email_user(db, payload.email, payload.password)
+    except HTTPException as http_exc:
+        raise http_exc
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"An error occurred during authentication: {str(e)}"
+        )

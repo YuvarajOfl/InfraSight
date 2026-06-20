@@ -6,6 +6,7 @@ class UserBase(BaseModel):
     email: EmailStr
     name: str
     profile_picture: Optional[str] = None
+    role: Optional[str] = None
 
 class UserCreate(UserBase):
     google_id: str
@@ -16,7 +17,7 @@ class UserUpdate(BaseModel):
 
 class UserResponse(UserBase):
     id: int
-    google_id: str
+    google_id: Optional[str] = None
     created_at: datetime
     updated_at: datetime
 

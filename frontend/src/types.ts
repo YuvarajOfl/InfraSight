@@ -1,9 +1,10 @@
 export interface User {
   id: number;
-  google_id: string;
+  google_id?: string;
   name: string;
   email: string;
   profile_picture?: string;
+  role?: string;
   created_at: string;
   updated_at: string;
 }

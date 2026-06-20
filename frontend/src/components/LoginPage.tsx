@@ -6,13 +6,34 @@ import {
   FileText, 
   Lock, 
   Sparkles, 
-  AlertCircle
+  AlertCircle,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 
 export function LoginPage() {
-  const { loginWithGoogleToken, isLoading: authLoading } = useAuth();
+  const { loginWithGoogleToken, loginWithEmailAndPassword, isLoading: authLoading } = useAuth();
   const [error, setError] = useState<string | null>(null);
   const [activeClientId, setActiveClientId] = useState<string>(import.meta.env.VITE_GOOGLE_CLIENT_ID || '915887390862-fcgaqrabnob077qjicmpaf79db80cqic.apps.googleusercontent.com');
+
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleEmailLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    setIsSubmitting(true);
+    try {
+      await loginWithEmailAndPassword(email, password);
+    } catch (err: any) {
+      console.error('Email Login error:', err);
+      setError(err.message || 'Incorrect email or password.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   useEffect(() => {
     console.log("GOOGLE CLIENT ID:", import.meta.env.VITE_GOOGLE_CLIENT_ID);
@@ -202,11 +223,66 @@ export function LoginPage() {
               </div>
             ) : (
               <div className="space-y-4 w-full flex flex-col items-center">
-                <div id="google-signin-button" className="relative z-20 min-h-[40px] flex items-center justify-center" />
+                <div id="google-signin-button" className="relative z-20 min-h-[40px] flex items-center justify-center animate-fade-in" />
                 <p className="text-[10px] text-slate-500 text-center flex items-center gap-1 justify-center max-w-xs">
                   <Lock className="h-3 w-3 text-emerald-500" />
                   Secure OAuth Authentication
                 </p>
+
+                {/* Divider */}
+                <div className="w-full flex items-center gap-3 py-1">
+                  <div className="h-[1px] flex-1 bg-white/10"></div>
+                  <span className="text-[9px] font-mono text-slate-500 uppercase tracking-widest">or sign in with email</span>
+                  <div className="h-[1px] flex-1 bg-white/10"></div>
+                </div>
+
+                {/* Email + Password Form */}
+                <form onSubmit={handleEmailLogin} className="w-full space-y-4 text-left">
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-mono text-slate-400 uppercase tracking-wider block">Email Address</label>
+                    <input
+                      type="email"
+                      required
+                      placeholder="admin@infrasight.io"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      className="w-full px-4 py-2.5 bg-slate-900/50 border border-white/10 rounded-xl text-slate-100 text-sm placeholder-slate-600 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/20 transition-all"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-mono text-slate-400 uppercase tracking-wider block">Password</label>
+                    <div className="relative">
+                      <input
+                        type={showPassword ? "text" : "password"}
+                        required
+                        placeholder="••••••••"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        className="w-full pl-4 pr-10 py-2.5 bg-slate-900/50 border border-white/10 rounded-xl text-slate-100 text-sm placeholder-slate-600 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/20 transition-all"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition-colors"
+                      >
+                        {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </button>
+                    </div>
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={isSubmitting}
+                    className="w-full py-2.5 px-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-sm font-semibold rounded-xl shadow-lg shadow-blue-500/20 hover:shadow-blue-500/35 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isSubmitting ? (
+                      <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    ) : (
+                      "Sign In"
+                    )}
+                  </button>
+                </form>
               </div>
             )}
           </div>

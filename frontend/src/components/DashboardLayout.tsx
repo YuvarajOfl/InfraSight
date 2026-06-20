@@ -9,12 +9,28 @@ import {
   FileCode,
   ShieldAlert,
   Sparkles,
-  FileText
+  FileText,
+  ChevronDown,
+  Settings
 } from 'lucide-react';
 
 export function DashboardLayout() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const [dropdownOpen, setDropdownOpen] = React.useState(false);
+  const dropdownRef = React.useRef<HTMLDivElement>(null);
+
+  React.useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setDropdownOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 font-sans relative overflow-x-hidden selection:bg-blue-600/30 selection:text-blue-200">
@@ -156,17 +172,78 @@ export function DashboardLayout() {
               <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
               <span>Control Center / {user?.name || 'Operator'}</span>
             </h2>
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-4 relative" ref={dropdownRef}>
               <span className="text-[10px] font-mono font-semibold px-2 py-0.5 bg-blue-500/10 border border-blue-500/20 text-blue-400 rounded uppercase hidden sm:inline-block">
-                Active Session
+                {user?.role || 'Cloud Security Analyst'}
               </span>
+
+              {/* Profile Dropdown Trigger */}
               <button
-                onClick={logout}
-                className="flex items-center gap-2 px-3 py-1.5 bg-white/5 border border-white/10 hover:bg-rose-500/10 hover:border-rose-500/20 text-slate-350 hover:text-rose-300 rounded-lg text-xs font-semibold transition-all cursor-pointer"
+                onClick={() => setDropdownOpen(!dropdownOpen)}
+                className="flex items-center gap-2 px-2.5 py-1.5 bg-white/5 border border-white/10 hover:bg-white/[0.08] hover:border-white/20 text-slate-200 rounded-xl text-xs font-semibold transition-all cursor-pointer select-none"
               >
-                <LogOut className="h-3.5 w-3.5" />
-                <span>Logout</span>
+                <div className="h-6 w-6 rounded-full bg-blue-950 border border-blue-500/30 flex items-center justify-center overflow-hidden">
+                  {user?.profile_picture ? (
+                    <img src={user.profile_picture} alt="Profile" className="h-full w-full object-cover" />
+                  ) : (
+                    <UserIcon className="h-3.5 w-3.5 text-blue-400" />
+                  )}
+                </div>
+                <span className="max-w-[100px] truncate hidden sm:inline-block">{user?.name || 'Operator'}</span>
+                <ChevronDown className={`h-3 w-3 text-slate-400 transition-transform duration-200 ${dropdownOpen ? 'rotate-180' : ''}`} />
               </button>
+
+              {/* Dropdown Menu */}
+              {dropdownOpen && (
+                <div className="absolute right-0 top-12 w-56 bg-slate-950 border border-white/10 rounded-xl shadow-2xl backdrop-blur-xl py-2 z-50 animate-in fade-in slide-in-from-top-2 duration-150 text-left">
+                  {/* User info header */}
+                  <div className="px-4 py-2.5 border-b border-white/5">
+                    <span className="text-xs font-bold text-slate-200 block truncate">{user?.name}</span>
+                    <span className="text-[10px] text-slate-500 block truncate mb-1.5">{user?.email}</span>
+                    <span className="text-[9px] font-mono font-bold uppercase tracking-wider px-1.5 py-0.5 bg-blue-500/15 border border-blue-500/20 text-blue-400 rounded inline-block">
+                      {user?.role || 'Cloud Security Analyst'}
+                    </span>
+                  </div>
+
+                  {/* Actions */}
+                  <div className="p-1 space-y-0.5">
+                    <button
+                      onClick={() => {
+                        setDropdownOpen(false);
+                        console.log("Profile action clicked");
+                      }}
+                      className="w-full flex items-center gap-2 px-3 py-2 text-left text-xs text-slate-450 hover:text-slate-200 hover:bg-white/[0.03] rounded-lg transition-colors cursor-pointer"
+                    >
+                      <UserIcon className="h-3.5 w-3.5" />
+                      Profile
+                    </button>
+                    <button
+                      onClick={() => {
+                        setDropdownOpen(false);
+                        console.log("Settings action clicked");
+                      }}
+                      className="w-full flex items-center gap-2 px-3 py-2 text-left text-xs text-slate-450 hover:text-slate-200 hover:bg-white/[0.03] rounded-lg transition-colors cursor-pointer"
+                    >
+                      <Settings className="h-3.5 w-3.5" />
+                      Settings
+                    </button>
+                  </div>
+
+                  {/* Logout section */}
+                  <div className="border-t border-white/5 p-1 mt-1">
+                    <button
+                      onClick={() => {
+                        setDropdownOpen(false);
+                        logout();
+                      }}
+                      className="w-full flex items-center gap-2 px-3 py-2 text-left text-xs text-rose-400 hover:text-rose-350 hover:bg-rose-500/10 rounded-lg transition-colors cursor-pointer"
+                    >
+                      <LogOut className="h-3.5 w-3.5" />
+                      Logout
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </header>
 

@@ -7,6 +7,7 @@ interface AuthContextType {
   isAuthenticated: boolean;
   isLoading: boolean;
   loginWithGoogleToken: (googleToken: string) => Promise<void>;
+  loginWithEmailAndPassword: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
 }
 
@@ -87,6 +88,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const loginWithEmailAndPassword = async (email: string, password: string) => {
+    setIsLoading(true);
+    try {
+      const response = await fetch(`${API_URL}/auth/login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email, password }),
+      });
+
+      if (!response.ok) {
+        const errJson = await response.json();
+        throw new Error(errJson.detail || 'Email Login failed on backend');
+      }
+
+      const data: { access_token: string; user: User } = await response.json();
+
+      localStorage.setItem('cg_auth_token', data.access_token);
+      setToken(data.access_token);
+      setUser(data.user);
+      setIsAuthenticated(true);
+    } catch (err) {
+      console.error('Auth Context Email login error:', err);
+      throw err;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const logout = async () => {
     setIsLoading(true);
     const storedToken = token || localStorage.getItem('cg_auth_token');
@@ -114,7 +145,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, token, isAuthenticated, isLoading, loginWithGoogleToken, logout }}>
+    <AuthContext.Provider value={{ user, token, isAuthenticated, isLoading, loginWithGoogleToken, loginWithEmailAndPassword, logout }}>
       {children}
     </AuthContext.Provider>
   );
