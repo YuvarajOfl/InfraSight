@@ -19,7 +19,23 @@ if not settings.JWT_SECRET:
     logger.error("JWT_SECRET environment variable is not configured")
     raise RuntimeError("JWT_SECRET is missing")
 
-from backend.database.session import engine, Base
+from backend.database.session import engine, Base, mask_database_url
+
+def mask_secret(value: str) -> str:
+    if not value:
+        return "empty"
+    if len(value) <= 8:
+        return "***"
+    return f"{value[:4]}...{value[-4:]}"
+
+logger.info("--------- Backend Runtime Configuration ---------")
+logger.info(f"APP_ENV: {settings.APP_ENV}")
+logger.info(f"PORT: {settings.PORT}")
+logger.info(f"GOOGLE_CLIENT_ID: {settings.GOOGLE_CLIENT_ID}")
+logger.info(f"JWT_SECRET (SECRET_KEY): {mask_secret(settings.JWT_SECRET)}")
+logger.info(f"DATABASE_URL: {mask_database_url(settings.database_url)}")
+logger.info("-------------------------------------------------")
+
 # Import models to ensure they are registered on Base for table creation
 from backend.models.user import User
 from backend.models.terraform import TerraformFile, TerraformResource, SecurityFinding, AIInsight, ReportHistory, AIAnalysisCache, AIFollowUpCache

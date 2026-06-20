@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { API_URL } from '../config';
 import { 
   Shield, 
   GitCompare, 
@@ -37,7 +38,6 @@ export function LoginPage() {
 
   useEffect(() => {
     console.log("GOOGLE CLIENT ID:", import.meta.env.VITE_GOOGLE_CLIENT_ID);
-    const API_URL = import.meta.env.VITE_API_URL || (typeof window !== 'undefined' ? `http://${window.location.hostname}:8000` : 'http://localhost:8000');
     const fetchConfig = async () => {
       try {
         const response = await fetch(`${API_URL}/auth/config`);

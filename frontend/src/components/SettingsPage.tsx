@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { Shield, Key, Eye, EyeOff, AlertCircle, CheckCircle, Monitor, Sun, Moon, Terminal } from 'lucide-react';
+import { API_URL } from '../config';
 
 export function SettingsPage() {
   const { user, token } = useAuth();
@@ -72,7 +73,6 @@ export function SettingsPage() {
     }
 
     setIsSubmitting(true);
-    const API_URL = import.meta.env.VITE_API_URL || (typeof window !== 'undefined' ? `http://${window.location.hostname}:8000` : 'http://localhost:8000');
 
     try {
       const response = await fetch(`${API_URL}/auth/change-password`, {
