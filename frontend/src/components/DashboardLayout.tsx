@@ -167,14 +167,14 @@ export function DashboardLayout() {
         <main className="flex-1 flex flex-col h-full bg-[#08090f] overflow-hidden">
           
           {/* Header */}
-          <header className="h-16 border-b border-white/5 px-8 flex items-center justify-between shrink-0 bg-slate-950/20 backdrop-blur-sm">
+          <header className="h-16 border-b border-white/5 px-8 flex items-center justify-between shrink-0 bg-slate-950/20 backdrop-blur-sm relative z-50">
             <h2 className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2">
               <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
               <span>Control Center / {user?.name || 'Operator'}</span>
             </h2>
             <div className="flex items-center gap-4 relative" ref={dropdownRef}>
               <span className="text-[10px] font-mono font-semibold px-2 py-0.5 bg-blue-500/10 border border-blue-500/20 text-blue-400 rounded uppercase hidden sm:inline-block">
-                {user?.role || 'Cloud Security Analyst'}
+                Provider: {user?.provider === 'google' ? 'Google' : 'Local Account'}
               </span>
 
               {/* Profile Dropdown Trigger */}
@@ -195,13 +195,13 @@ export function DashboardLayout() {
 
               {/* Dropdown Menu */}
               {dropdownOpen && (
-                <div className="absolute right-0 top-12 w-56 bg-slate-950 border border-white/10 rounded-xl shadow-2xl backdrop-blur-xl py-2 z-50 animate-in fade-in slide-in-from-top-2 duration-150 text-left">
+                <div className="absolute right-0 top-12 w-56 bg-slate-900 border border-white/10 rounded-xl shadow-2xl py-2 z-[9999] animate-in fade-in slide-in-from-top-2 duration-150 text-left">
                   {/* User info header */}
                   <div className="px-4 py-2.5 border-b border-white/5">
                     <span className="text-xs font-bold text-slate-200 block truncate">{user?.name}</span>
                     <span className="text-[10px] text-slate-500 block truncate mb-1.5">{user?.email}</span>
                     <span className="text-[9px] font-mono font-bold uppercase tracking-wider px-1.5 py-0.5 bg-blue-500/15 border border-blue-500/20 text-blue-400 rounded inline-block">
-                      {user?.role || 'Cloud Security Analyst'}
+                      Provider: {user?.provider === 'google' ? 'Google' : 'Local Account'}
                     </span>
                   </div>
 
@@ -210,7 +210,7 @@ export function DashboardLayout() {
                     <button
                       onClick={() => {
                         setDropdownOpen(false);
-                        console.log("Profile action clicked");
+                        navigate('/profile');
                       }}
                       className="w-full flex items-center gap-2 px-3 py-2 text-left text-xs text-slate-450 hover:text-slate-200 hover:bg-white/[0.03] rounded-lg transition-colors cursor-pointer"
                     >
@@ -220,7 +220,7 @@ export function DashboardLayout() {
                     <button
                       onClick={() => {
                         setDropdownOpen(false);
-                        console.log("Settings action clicked");
+                        navigate('/settings');
                       }}
                       className="w-full flex items-center gap-2 px-3 py-2 text-left text-xs text-slate-450 hover:text-slate-200 hover:bg-white/[0.03] rounded-lg transition-colors cursor-pointer"
                     >

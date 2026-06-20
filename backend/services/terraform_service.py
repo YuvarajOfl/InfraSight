@@ -108,12 +108,14 @@ def validate_and_parse_terraform(db: Session, user_id: int, file_name: str, file
     if "resources" not in data or not isinstance(data["resources"], list):
         raise ValueError("Invalid Terraform state file. Missing 'resources' list.")
 
+    from datetime import datetime, timezone
     # 3. Create File record
     file_type = "tfstate" if lower_name.endswith(".tfstate") else "json"
     db_file = TerraformFile(
         user_id=user_id,
         file_name=file_name,
         file_type=file_type,
+        upload_time=datetime.now(timezone.utc),
         status="uploaded"
     )
     db.add(db_file)
@@ -348,11 +350,13 @@ def validate_and_save_hcl(db: Session, user_id: int, file_name: str, file_conten
         TerraformFile.file_name == file_name
     ).first()
 
+    from datetime import datetime, timezone
     if not db_file:
         db_file = TerraformFile(
             user_id=user_id,
             file_name=file_name,
             file_type=file_type,
+            upload_time=datetime.now(timezone.utc),
             status="uploaded"
         )
         db.add(db_file)
@@ -361,6 +365,7 @@ def validate_and_save_hcl(db: Session, user_id: int, file_name: str, file_conten
     else:
         db_file.status = "uploaded"
         db_file.file_type = file_type
+        db_file.upload_time = datetime.now(timezone.utc)
         db.commit()
         db.refresh(db_file)
 

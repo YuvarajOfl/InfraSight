@@ -31,34 +31,6 @@ try:
     Base.metadata.create_all(bind=engine)
     logger.info("Database tables initialized successfully.")
 
-    # Seed administrative user
-    from backend.database.session import SessionLocal
-    from backend.services import user_service
-    from backend.utils.security import get_password_hash
-    from backend.models.user import User
-
-    db_session = SessionLocal()
-    try:
-        admin_email = "admin@infrasight.io"
-        admin_user = user_service.get_user_by_email(db_session, admin_email)
-        if not admin_user:
-            logger.info("Seeding administrative user account...")
-            hashed_pwd = get_password_hash("InfraSight@2026")
-            db_admin = User(
-                google_id=None,
-                name="InfraSight Administrator",
-                email=admin_email,
-                hashed_password=hashed_pwd,
-                role="Cloud Security Analyst"
-            )
-            db_session.add(db_admin)
-            db_session.commit()
-            logger.info("Administrative user seeded successfully.")
-    except Exception as seed_err:
-        logger.error(f"Failed to seed administrative user: {seed_err}")
-    finally:
-        db_session.close()
-    
     # Ensure reports output folder exists
     import os
     os.makedirs(os.path.join("uploads", "reports"), exist_ok=True)

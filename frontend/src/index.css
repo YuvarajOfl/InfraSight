@@ -5,3 +5,116 @@
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
 }
+
+/* Light Theme Overrides */
+:root.light, :root.light body {
+  background-color: #f8fafc !important;
+  color: #334155 !important;
+}
+
+:root.light .bg-slate-950 {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+}
+
+:root.light aside.bg-slate-950 {
+  background-color: #ffffff !important;
+  border-right-color: #e2e8f0 !important;
+}
+
+:root.light header {
+  border-bottom-color: #e2e8f0 !important;
+}
+
+:root.light main.bg-\[\#08090f\] {
+  background-color: #f8fafc !important;
+  color: #334155 !important;
+}
+
+:root.light .text-slate-100,
+:root.light .text-slate-200,
+:root.light .text-slate-300,
+:root.light .text-white {
+  color: #0f172a !important;
+}
+
+:root.light .text-slate-400,
+:root.light .text-slate-450,
+:root.light .text-slate-500 {
+  color: #64748b !important;
+}
+
+:root.light .bg-slate-900,
+:root.light .bg-slate-900\/10,
+:root.light .bg-slate-900\/20,
+:root.light .bg-slate-900\/50,
+:root.light .bg-slate-950\/40,
+:root.light .bg-slate-950\/20,
+:root.light .bg-slate-950\/30,
+:root.light .bg-white\/\[0\.01\],
+:root.light .bg-white\/\[0\.02\],
+:root.light .bg-white\/5 {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+}
+
+:root.light .border-white\/5,
+:root.light .border-white\/10,
+:root.light .border-white\/15,
+:root.light .border-white\/20,
+:root.light .border-white\/25,
+:root.light .border-r-white\/5,
+:root.light .border-b-white\/5,
+:root.light .border-t-white\/5 {
+  border-color: #e2e8f0 !important;
+}
+
+:root.light .hover\:bg-white\/\[0\.02\]:hover,
+:root.light .hover\:bg-white\/\[0\.03\]:hover,
+:root.light .hover\:bg-white\/10:hover,
+:root.light .hover\:bg-white\/\[0\.08\]:hover {
+  background-color: #f1f5f9 !important;
+  color: #0f172a !important;
+}
+
+:root.light .text-slate-455,
+:root.light .text-slate-450 {
+  color: #475569 !important;
+}
+
+:root.light input,
+:root.light select,
+:root.light textarea {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+  border-color: #cbd5e1 !important;
+}
+
+:root.light input::placeholder {
+  color: #94a3b8 !important;
+}
+
+:root.light .shadow-2xl,
+:root.light .shadow-xl {
+  box-shadow: 0 10px 15px -3px rgba(15, 23, 42, 0.05), 0 4px 6px -4px rgba(15, 23, 42, 0.05) !important;
+}
+
+/* Fix active menu item in light mode */
+:root.light .bg-white\/5 {
+  background-color: #f1f5f9 !important;
+  border-color: #cbd5e1 !important;
+  color: #2563eb !important;
+}
+
+/* Selection and scrollbar styles */
+:root.light ::selection {
+  background-color: rgba(59, 130, 246, 0.1) !important;
+  color: #2563eb !important;
+}
+
+/* Adjust blur highlights for light theme */
+:root.light .bg-indigo-900\/10,
+:root.light .bg-blue-900\/10 {
+  background-color: rgba(59, 130, 246, 0.03) !important;
+}
+

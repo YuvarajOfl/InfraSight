@@ -1,5 +1,5 @@
-from pydantic import BaseModel
-from datetime import datetime
+from pydantic import BaseModel, field_serializer
+from datetime import datetime, timezone
 from typing import List, Any, Optional
 
 class TerraformResourceResponse(BaseModel):
@@ -31,6 +31,12 @@ class SecurityFindingResponse(BaseModel):
     class Config:
         from_attributes = True
 
+    @field_serializer('created_at')
+    def serialize_created_at(self, created_at: datetime, _info):
+        if created_at.tzinfo is None:
+            created_at = created_at.replace(tzinfo=timezone.utc)
+        return created_at.astimezone(timezone.utc).isoformat()
+
 
 class CostFindingResponse(BaseModel):
     id: int
@@ -47,6 +53,12 @@ class CostFindingResponse(BaseModel):
     class Config:
         from_attributes = True
 
+    @field_serializer('created_at')
+    def serialize_created_at(self, created_at: datetime, _info):
+        if created_at.tzinfo is None:
+            created_at = created_at.replace(tzinfo=timezone.utc)
+        return created_at.astimezone(timezone.utc).isoformat()
+
 
 class TerraformFileResponse(BaseModel):
     id: int
@@ -61,5 +73,11 @@ class TerraformFileResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+    @field_serializer('upload_time')
+    def serialize_upload_time(self, upload_time: datetime, _info):
+        if upload_time.tzinfo is None:
+            upload_time = upload_time.replace(tzinfo=timezone.utc)
+        return upload_time.astimezone(timezone.utc).isoformat()
 
 

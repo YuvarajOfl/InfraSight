@@ -2,12 +2,16 @@ import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from './context/AuthContext';
 import { LoginPage } from './components/LoginPage';
+import { RegisterPage } from './components/RegisterPage';
 import { DashboardLayout } from './components/DashboardLayout';
 import { DashboardOverview } from './components/DashboardOverview';
 import { TerraformFiles } from './components/TerraformFiles';
 import { InfrastructureAnalysis } from './components/InfrastructureAnalysis';
 import { AIAdvisor } from './components/AIAdvisor';
 import { Reports } from './components/Reports';
+import { ProfilePage } from './components/ProfilePage';
+import { SettingsPage } from './components/SettingsPage';
+
 
 // Protected Route wrapper component
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -34,6 +38,50 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 export default function App() {
   const { isAuthenticated } = useAuth();
 
+  React.useEffect(() => {
+    const handleThemeChange = () => {
+      const storedTheme = localStorage.getItem('cg_theme') || 'dark';
+      const root = document.documentElement;
+      
+      if (storedTheme === 'light') {
+        root.classList.add('light');
+        root.classList.remove('dark');
+      } else if (storedTheme === 'dark') {
+        root.classList.remove('light');
+        root.classList.add('dark');
+      } else {
+        // system theme
+        const systemIsDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        if (systemIsDark) {
+          root.classList.remove('light');
+          root.classList.add('dark');
+        } else {
+          root.classList.add('light');
+          root.classList.remove('dark');
+        }
+      }
+    };
+
+    handleThemeChange();
+
+    window.addEventListener('storage', handleThemeChange);
+    window.addEventListener('theme-change', handleThemeChange);
+
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    const handleSystemThemeChange = () => {
+      if (localStorage.getItem('cg_theme') === 'system') {
+        handleThemeChange();
+      }
+    };
+    mediaQuery.addEventListener('change', handleSystemThemeChange);
+
+    return () => {
+      window.removeEventListener('storage', handleThemeChange);
+      window.removeEventListener('theme-change', handleThemeChange);
+      mediaQuery.removeEventListener('change', handleSystemThemeChange);
+    };
+  }, []);
+
   return (
     <Routes>
       <Route 
@@ -41,18 +89,23 @@ export default function App() {
         element={isAuthenticated ? <Navigate to="/dashboard" replace /> : <LoginPage />} 
       />
       <Route 
-        path="/dashboard" 
+        path="/register" 
+        element={isAuthenticated ? <Navigate to="/dashboard" replace /> : <RegisterPage />} 
+      />
+      <Route 
         element={
           <ProtectedRoute>
             <DashboardLayout />
           </ProtectedRoute>
         } 
       >
-        <Route index element={<DashboardOverview />} />
-        <Route path="files" element={<TerraformFiles />} />
-        <Route path="analysis" element={<InfrastructureAnalysis />} />
-        <Route path="ai" element={<AIAdvisor />} />
-        <Route path="reports" element={<Reports />} />
+        <Route path="/dashboard" element={<DashboardOverview />} />
+        <Route path="/dashboard/files" element={<TerraformFiles />} />
+        <Route path="/dashboard/analysis" element={<InfrastructureAnalysis />} />
+        <Route path="/dashboard/ai" element={<AIAdvisor />} />
+        <Route path="/dashboard/reports" element={<Reports />} />
+        <Route path="/profile" element={<ProfilePage />} />
+        <Route path="/settings" element={<SettingsPage />} />
       </Route>
       <Route 
         path="*" 

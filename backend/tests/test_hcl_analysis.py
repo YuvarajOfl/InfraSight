@@ -70,7 +70,10 @@ def test_integration():
         params={"upload_action": "replace"}
     )
     assert upload_resp.status_code == 201, f"Upload main.tf failed: {upload_resp.text}"
-    file_id = upload_resp.json()["id"]
+    upload_data = upload_resp.json()
+    file_id = upload_data["id"]
+    upload_time_str = upload_data["upload_time"]
+    assert "+00:00" in upload_time_str or "Z" in upload_time_str, f"upload_time must include timezone offset, got: {upload_time_str}"
 
     # 3. Retrieve resources and verify it contains default value
     res_resp = requests.get(f"{API_URL}/api/resources/{file_id}", headers=headers)

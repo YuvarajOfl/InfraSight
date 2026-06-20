@@ -77,6 +77,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const data: { access_token: string; user: User } = await response.json();
 
       localStorage.setItem('cg_auth_token', data.access_token);
+      localStorage.setItem('cg_last_login', new Date().toISOString());
       setToken(data.access_token);
       setUser(data.user);
       setIsAuthenticated(true);
@@ -107,6 +108,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const data: { access_token: string; user: User } = await response.json();
 
       localStorage.setItem('cg_auth_token', data.access_token);
+      localStorage.setItem('cg_last_login', new Date().toISOString());
       setToken(data.access_token);
       setUser(data.user);
       setIsAuthenticated(true);
@@ -138,10 +140,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     // Always clear local storage state regardless of backend outcome
     localStorage.removeItem('cg_auth_token');
+    localStorage.clear();
+    sessionStorage.clear();
     setToken(null);
     setUser(null);
     setIsAuthenticated(false);
     setIsLoading(false);
+    window.location.href = '/login';
   };
 
   return (

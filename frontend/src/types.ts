@@ -5,6 +5,7 @@ export interface User {
   email: string;
   profile_picture?: string;
   role?: string;
+  provider: string;
   created_at: string;
   updated_at: string;
 }

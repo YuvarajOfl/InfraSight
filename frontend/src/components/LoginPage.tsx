@@ -243,7 +243,7 @@ export function LoginPage() {
                     <input
                       type="email"
                       required
-                      placeholder="admin@infrasight.io"
+                      placeholder="email@example.com"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       className="w-full px-4 py-2.5 bg-slate-900/50 border border-white/10 rounded-xl text-slate-100 text-sm placeholder-slate-600 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/20 transition-all"
@@ -282,6 +282,11 @@ export function LoginPage() {
                       "Sign In"
                     )}
                   </button>
+
+                  <div className="text-center pt-2 border-t border-white/5">
+                    <span className="text-xs text-slate-500">Don't have an account? </span>
+                    <a href="/register" className="text-xs text-blue-400 hover:underline hover:text-blue-300 transition-colors font-medium">Register here</a>
+                  </div>
                 </form>
               </div>
             )}

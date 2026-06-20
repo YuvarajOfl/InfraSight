@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 from backend.database.session import get_db
-from backend.schemas.auth import GoogleLoginRequest, EmailLoginRequest, TokenResponse
+from backend.schemas.auth import GoogleLoginRequest, EmailLoginRequest, TokenResponse, UserRegisterRequest, ChangePasswordRequest
 from backend.schemas.user import UserResponse
 from backend.services import auth_service, user_service
 from backend.utils.jwt import verify_access_token
@@ -115,4 +115,71 @@ async def login_with_email(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"An error occurred during authentication: {str(e)}"
+        )
+
+@router.post("/register", response_model=UserResponse)
+async def register(
+    payload: UserRegisterRequest,
+    db: Session = Depends(get_db)
+):
+    """
+    Registers a new local account. Checks for existing emails, hashes password, and persists user.
+    """
+    existing_user = user_service.get_user_by_email(db, payload.email)
+    if existing_user:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Email already registered."
+        )
+
+    try:
+        from backend.utils.security import get_password_hash
+        from backend.schemas.user import UserCreate
+        
+        pwd_hash = get_password_hash(payload.password)
+        user_in = UserCreate(
+            google_id=None,
+            email=payload.email,
+            name=payload.name,
+            provider="local"
+        )
+        new_user = user_service.create_user(db, user_in, password_hash=pwd_hash)
+        return new_user
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"An error occurred during user registration: {str(e)}"
+        )
+
+@router.post("/change-password")
+async def change_password(
+    payload: ChangePasswordRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Changes the password of a local account user.
+    """
+    if current_user.provider != "local":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Password change is only supported for local accounts."
+        )
+
+    from backend.utils.security import verify_password, get_password_hash
+    if not current_user.password_hash or not verify_password(payload.current_password, current_user.password_hash):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Incorrect current password."
+        )
+
+    try:
+        current_user.password_hash = get_password_hash(payload.new_password)
+        db.commit()
+        return {"success": True, "message": "Password changed successfully."}
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"An error occurred while changing password: {str(e)}"
         )

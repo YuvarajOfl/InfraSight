@@ -1,6 +1,6 @@
 import logging
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, status, Query
 from fastapi.responses import StreamingResponse, FileResponse
 from sqlalchemy.orm import Session
@@ -495,6 +495,11 @@ async def get_dashboard_activity(
 ):
     from backend.models.terraform import TerraformFile, AIInsight, ReportHistory, SecurityFinding, CostFinding
     
+    def ensure_utc(dt: datetime) -> datetime:
+        if dt.tzinfo is None:
+            return dt.replace(tzinfo=timezone.utc)
+        return dt.astimezone(timezone.utc)
+
     activities = []
     
     # 1. Fetch recent file uploads
@@ -502,7 +507,7 @@ async def get_dashboard_activity(
     for f in files:
         activities.append({
             "text": f"Uploaded {f.file_name}",
-            "timestamp": f.upload_time,
+            "timestamp": ensure_utc(f.upload_time),
             "type": "upload"
         })
         
@@ -511,7 +516,7 @@ async def get_dashboard_activity(
     for r in reports:
         activities.append({
             "text": f"Generated report: {r.report_name}",
-            "timestamp": r.created_at,
+            "timestamp": ensure_utc(r.created_at),
             "type": "report"
         })
         
@@ -536,7 +541,7 @@ async def get_dashboard_activity(
                     finding_title = f_rec.title
             activities.append({
                 "text": f"Generated AI recommendation for {finding_title}",
-                "timestamp": ins.created_at,
+                "timestamp": ensure_utc(ins.created_at),
                 "type": "ai"
             })
             

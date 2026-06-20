@@ -1,3 +1,4 @@
+from typing import Optional
 from sqlalchemy.orm import Session
 from backend.models.user import User
 from backend.schemas.user import UserCreate, UserUpdate
@@ -20,7 +21,7 @@ def get_user_by_google_id(db: Session, google_id: str) -> User:
     """
     return db.query(User).filter(User.google_id == google_id).first()
 
-def create_user(db: Session, user_in: UserCreate) -> User:
+def create_user(db: Session, user_in: UserCreate, password_hash: Optional[str] = None) -> User:
     """
     Creates a new user record in the database.
     """
@@ -28,7 +29,10 @@ def create_user(db: Session, user_in: UserCreate) -> User:
         google_id=user_in.google_id,
         name=user_in.name,
         email=user_in.email,
-        profile_picture=user_in.profile_picture
+        profile_picture=user_in.profile_picture,
+        password_hash=password_hash,
+        provider=user_in.provider,
+        role=user_in.role
     )
     db.add(db_user)
     db.commit()

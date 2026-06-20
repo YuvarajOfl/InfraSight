@@ -47,7 +47,8 @@ def authenticate_google_user(db: Session, google_token: str) -> TokenResponse:
                 google_id=google_id,
                 email=email,
                 name=name,
-                profile_picture=profile_picture
+                profile_picture=profile_picture,
+                provider="google"
             )
             user = user_service.create_user(db, user_in)
             logger.info(f"Registered new Google user: {email}")
@@ -88,11 +89,11 @@ def authenticate_email_user(db: Session, email: str, password: str) -> TokenResp
     user = user_service.get_user_by_email(db, email)
     if not user:
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect email or password."
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Account not found. Please register first."
         )
 
-    if not user.hashed_password or not verify_password(password, user.hashed_password):
+    if user.provider != "local" or not user.password_hash or not verify_password(password, user.password_hash):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password."
