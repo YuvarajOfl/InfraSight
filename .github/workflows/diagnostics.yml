@@ -15,34 +15,46 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ap-south-1
 
-      - name: Verify Security Group Rules
+      - name: Describe All EC2 Instances
         run: |
-          echo "=== AWS Security Group Rules ==="
-          aws ec2 describe-security-groups --filters "Name=group-name,Values=InfraSight-sg" --output json
+          echo "=== All EC2 Instances in ap-south-1 ==="
+          aws ec2 describe-instances --query "Reservations[*].Instances[*].{InstanceId:InstanceId,State:State.Name,PublicIpAddress:PublicIpAddress,SecurityGroups:SecurityGroups,Tags:Tags}" --output json || true
 
-      - name: Setup SSH Key
+      - name: Describe All Security Groups
+        run: |
+          echo "=== All Security Groups in ap-south-1 ==="
+          aws ec2 describe-security-groups --query "SecurityGroups[*].{GroupName:GroupName,GroupId:GroupId,IpPermissions:IpPermissions}" --output json || true
+
+      - name: Network Connectivity Test to EIP
+        run: |
+          echo "=== Ping / NC check to 35.154.59.136 ==="
+          ping -c 3 35.154.59.136 || true
+          nc -zv -w 5 35.154.59.136 22 || true
+          nc -zv -w 5 35.154.59.136 80 || true
+          nc -zv -w 5 35.154.59.136 8000 || true
+
+      - name: Setup SSH Key and Scan
         run: |
           mkdir -p ~/.ssh
           echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
-          ssh-keyscan -H 35.154.59.136 >> ~/.ssh/known_hosts
+          ssh-keyscan -H 35.154.59.136 >> ~/.ssh/known_hosts || echo "ssh-keyscan failed"
 
       - name: Run SSH Diagnostics
         run: |
           echo "=== Connecting to EC2 ==="
-          ssh ubuntu@35.154.59.136 "
+          ssh -o ConnectTimeout=10 ubuntu@35.154.59.136 "
             echo '=== 1. docker ps ==='
-            docker ps
+            docker ps || true
             
             echo '=== 2. docker compose ps ==='
-            cd /home/ubuntu/infrasight
-            docker compose ps
+            cd /home/ubuntu/infrasight && docker compose ps || true
             
             echo '=== 3. docker compose logs backend --tail=200 ==='
-            docker compose logs backend --tail=200
+            cd /home/ubuntu/infrasight && docker compose logs backend --tail=200 || true
             
             echo '=== 4. docker compose logs frontend --tail=100 ==='
-            docker compose logs frontend --tail=100
+            cd /home/ubuntu/infrasight && docker compose logs frontend --tail=100 || true
             
             echo '=== 5. curl http://localhost:8000/auth/config ==='
             curl -i http://localhost:8000/auth/config || echo 'Failed to curl backend auth/config'
@@ -54,7 +66,6 @@ jobs:
             FRONTEND_CONTAINER=\$(docker ps -q -f name=frontend)
             if [ -n \"\$FRONTEND_CONTAINER\" ]; then
               docker exec \$FRONTEND_CONTAINER env | grep -i url || echo 'No URL env in frontend'
-              # Try to find VITE_API_URL or config.ts generated output
               docker exec \$FRONTEND_CONTAINER sh -c \"grep -o -E 'http[s]?://[^\\\"]+:8000' /usr/share/nginx/html/assets/index-*.js\" || echo 'No matching API URL string in built JS files'
             else
               echo 'Frontend container is not running.'
@@ -69,5 +80,5 @@ jobs:
             fi
             
             echo '=== Network inspect ==='
-            docker network ls
-          "
+            docker network ls || true
+          " || echo "SSH connection failed"
