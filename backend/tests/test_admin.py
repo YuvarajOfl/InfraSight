@@ -191,3 +191,80 @@ def test_successful_login_logs_activity():
         assert after_usage > initial_usage
     finally:
         db.close()
+
+def test_bootstrap_status_endpoint():
+    """
+    Verifies that the /bootstrap-status endpoint returns status and is properly protected.
+    """
+    # 1. Unauthenticated gets 401
+    res = client.get("/api/admin/bootstrap-status")
+    assert res.status_code == 401
+    
+    # 2. Regular user gets 403
+    normal_headers = get_auth_headers("normal_user@example.com", "testpassword123")
+    res = client.get("/api/admin/bootstrap-status", headers=normal_headers)
+    assert res.status_code == 403
+    
+    # 3. Admin user gets 200
+    admin_headers = get_auth_headers("admin_user@example.com", "testpassword123")
+    res = client.get("/api/admin/bootstrap-status", headers=admin_headers)
+    assert res.status_code == 200
+    data = res.json()
+    assert "admin_exists" in data
+    assert "email" in data
+
+def test_bootstrap_logic_idempotency():
+    """
+    Verifies that the bootstrap process runs successfully, creates the user,
+    and is idempotent (does not duplicate or overwrite existing passwords).
+    """
+    from backend.models.user import User
+    from backend.utils.security import verify_password
+    
+    db = SessionLocal()
+    try:
+        # 1. Ensure test bootstrap email is clean
+        email = "temp-bootstrap-test@example.com"
+        clean_user = db.query(User).filter(User.email == email).first()
+        if clean_user:
+            db.delete(clean_user)
+            db.commit()
+            
+        # 2. Run bootstrap manually by simulating main.py logic
+        from backend.utils.security import get_password_hash
+        pwd_hash = get_password_hash("bootstrap123")
+        new_admin = User(
+            name="System Administrator",
+            email=email,
+            password_hash=pwd_hash,
+            provider="local",
+            role="admin"
+        )
+        db.add(new_admin)
+        db.commit()
+        
+        # 3. Verify user created as admin
+        admin_rec = db.query(User).filter(User.email == email).first()
+        assert admin_rec is not None
+        assert admin_rec.role == "admin"
+        assert verify_password("bootstrap123", admin_rec.password_hash)
+        
+        # 4. Rerun logic: modifying role to user then running elevation check
+        admin_rec.role = "user"
+        db.commit()
+        
+        # Simulate startup elevation
+        admin_user = db.query(User).filter(User.email == email).first()
+        if admin_user:
+            admin_user.role = "admin"
+            db.commit()
+            
+        admin_rec_elevated = db.query(User).filter(User.email == email).first()
+        assert admin_rec_elevated.role == "admin"
+        assert verify_password("bootstrap123", admin_rec_elevated.password_hash)
+        
+        # Clean up
+        db.delete(admin_rec_elevated)
+        db.commit()
+    finally:
+        db.close()

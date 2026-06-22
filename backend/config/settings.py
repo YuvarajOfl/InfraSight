@@ -19,6 +19,10 @@ class Settings(BaseSettings):
     JWT_ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440
 
+    # Admin Bootstrapping Configuration
+    ADMIN_EMAIL: str = ""
+    ADMIN_PASSWORD: str = ""
+
     # Google OAuth Configuration
     GOOGLE_CLIENT_ID: str = "915887390862-fcgaqrabnob077qjicmpaf79db80cqic.apps.googleusercontent.com"
     GOOGLE_CLIENT_SECRET: str = ""

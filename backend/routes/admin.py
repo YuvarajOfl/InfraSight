@@ -373,3 +373,25 @@ async def get_admin_security(
         "suspicious_activity": suspicious_activities,
         "most_active_users": most_active
     }
+
+@router.get("/bootstrap-status")
+async def get_bootstrap_status(
+    db: Session = Depends(get_db),
+    admin_user: User = Depends(get_current_admin)
+):
+    """
+    Returns the bootstrap status of the system administrator.
+    """
+    from backend.config.settings import settings
+    email = settings.ADMIN_EMAIL.lower().strip() if settings.ADMIN_EMAIL else None
+    admin_exists = False
+    if email:
+        admin_exists = db.query(User).filter(
+            User.email == email,
+            User.role == "admin"
+        ).first() is not None
+        
+    return {
+        "admin_exists": admin_exists,
+        "email": email
+    }

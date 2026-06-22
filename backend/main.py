@@ -71,6 +71,44 @@ try:
         conn.execute(text("UPDATE users SET role = 'user' WHERE role IS NULL"))
     logger.info("Database role backfill completed successfully.")
 
+    # 3. Bootstrap Administrator account if configured
+    if settings.ADMIN_EMAIL and settings.ADMIN_PASSWORD:
+        email = settings.ADMIN_EMAIL.lower().strip()
+        logger.info(f"Checking for bootstrap administrator: {email}...")
+        
+        from backend.database.session import SessionLocal
+        from backend.models.user import User
+        from backend.utils.security import get_password_hash
+        from backend.models.terraform import TerraformFile, ReportHistory  # Register relationship mappers
+        
+        db = SessionLocal()
+        try:
+            admin_user = db.query(User).filter(User.email == email).first()
+            if admin_user:
+                if admin_user.role != "admin":
+                    admin_user.role = "admin"
+                    db.commit()
+                    logger.info(f"[ADMIN] Elevated existing user {email} to admin role.")
+            else:
+                pwd_hash = get_password_hash(settings.ADMIN_PASSWORD)
+                new_admin = User(
+                    name="System Administrator",
+                    email=email,
+                    password_hash=pwd_hash,
+                    provider="local",
+                    role="admin"
+                )
+                db.add(new_admin)
+                db.commit()
+                logger.info(f"[ADMIN] Created new admin user: {email}")
+                
+            logger.info("[ADMIN] Bootstrap admin verified")
+        except Exception as bootstrap_err:
+            db.rollback()
+            logger.error(f"Failed to verify/bootstrap admin: {bootstrap_err}")
+        finally:
+            db.close()
+
     # Ensure uploads folders exist defensively on startup
     import os
     for dir_path in [

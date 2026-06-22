@@ -31,6 +31,8 @@ jobs:
           check_secret "GEMINI_API_KEY" "${{ secrets.GEMINI_API_KEY }}"
           check_secret "GOOGLE_CLIENT_ID" "${{ secrets.GOOGLE_CLIENT_ID }}"
           check_secret "GOOGLE_CLIENT_SECRET" "${{ secrets.GOOGLE_CLIENT_SECRET }}"
+          check_secret "ADMIN_EMAIL" "${{ secrets.ADMIN_EMAIL }}"
+          check_secret "ADMIN_PASSWORD" "${{ secrets.ADMIN_PASSWORD }}"
           if [ $error_found -ne 0 ]; then
             echo "FATAL: Deployment aborted due to missing secrets. Please configure them in your repository settings."
             exit 1
@@ -241,6 +243,8 @@ jobs:
           GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID }}
           GOOGLE_CLIENT_SECRET=${{ secrets.GOOGLE_CLIENT_SECRET }}
           CORS_ORIGINS=*
+          ADMIN_EMAIL=${{ secrets.ADMIN_EMAIL }}
+          ADMIN_PASSWORD=${{ secrets.ADMIN_PASSWORD }}
           EOF
           scp .env.prod ubuntu@${{ env.EC2_IP }}:/home/ubuntu/infrasight/.env
 
