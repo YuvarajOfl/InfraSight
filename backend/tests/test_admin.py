@@ -1,51 +1,13 @@
-import requests
-import sys
-import subprocess
-import time
-import os
-import pytest
+from fastapi.testclient import TestClient
+from backend.main import app
 from backend.database.session import SessionLocal, Base, engine
 from backend.models.user import User
 from backend.models.terraform import TerraformFile, ReportHistory  # Register models for relationship mapper
 from backend.models.audit import LoginLog, UsageLog, FailedLogin
 from backend.utils.security import get_password_hash
+import pytest
 
-API_URL = "http://localhost:8000"
-
-def is_localhost_running():
-    try:
-        response = requests.get(API_URL, timeout=1)
-        return response.status_code == 200
-    except Exception:
-        return False
-
-@pytest.fixture(scope="module", autouse=True)
-def manage_server():
-    server_started_by_us = False
-    proc = None
-    if not is_localhost_running():
-        print("Starting FastAPI backend server...")
-        # Start server as subprocess using current system python executable
-        python_exe = sys.executable
-        proc = subprocess.Popen(
-            [python_exe, "-m", "uvicorn", "backend.main:app", "--port", "8000"],
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL
-        )
-        server_started_by_us = True
-        
-        # Wait up to 15 seconds for uvicorn to bind and listen
-        for _ in range(15):
-            time.sleep(1)
-            if is_localhost_running():
-                break
-        
-    yield
-    
-    if server_started_by_us and proc:
-        print("Stopping backend server...")
-        proc.terminate()
-        proc.wait()
+client = TestClient(app)
 
 @pytest.fixture(autouse=True)
 def setup_test_users():
@@ -118,54 +80,53 @@ def setup_test_users():
     finally:
         db.close()
 
-def get_auth_token(email: str, password: str) -> str:
+def get_auth_headers(email: str, password: str) -> dict:
     payload = {
         "email": email,
         "password": password
     }
-    response = requests.post(f"{API_URL}/auth/login", json=payload)
+    response = client.post("/auth/login", json=payload)
     assert response.status_code == 200
-    return response.json()["access_token"]
+    token = response.json()["access_token"]
+    return {"Authorization": f"Bearer {token}"}
 
 def test_unauthenticated_access_blocked():
     """
     Verifies that admin endpoints reject unauthenticated requests with 401.
     """
     for endpoint in ["dashboard", "users", "login-logs", "usage-logs", "security"]:
-        response = requests.get(f"{API_URL}/api/admin/{endpoint}")
+        response = client.get(f"/api/admin/{endpoint}")
         assert response.status_code == 401
 
 def test_unauthorized_access_blocked():
     """
     Verifies that standard users (role = user) cannot access admin endpoints.
     """
-    token = get_auth_token("normal_user@example.com", "testpassword123")
-    headers = {"Authorization": f"Bearer {token}"}
+    headers = get_auth_headers("normal_user@example.com", "testpassword123")
     for endpoint in ["dashboard", "users", "login-logs", "usage-logs", "security"]:
-        response = requests.get(f"{API_URL}/api/admin/{endpoint}", headers=headers)
+        response = client.get(f"/api/admin/{endpoint}", headers=headers)
         assert response.status_code == 403
 
 def test_admin_access_allowed():
     """
     Verifies that administrators can access admin endpoints.
     """
-    token = get_auth_token("admin_user@example.com", "testpassword123")
-    headers = {"Authorization": f"Bearer {token}"}
+    headers = get_auth_headers("admin_user@example.com", "testpassword123")
     
     # Dashboard stats check
-    response = requests.get(f"{API_URL}/api/admin/dashboard", headers=headers)
+    response = client.get("/api/admin/dashboard", headers=headers)
     assert response.status_code == 200
     data = response.json()
     assert "total_users" in data
     assert "total_logins" in data
     
     # Users directory check
-    response = requests.get(f"{API_URL}/api/admin/users", headers=headers)
+    response = client.get("/api/admin/users", headers=headers)
     assert response.status_code == 200
     assert len(response.json()) >= 2
     
     # User Details check
-    response = requests.get(f"{API_URL}/api/admin/user/{pytest.normal_user_id}", headers=headers)
+    response = client.get(f"/api/admin/user/{pytest.normal_user_id}", headers=headers)
     assert response.status_code == 200
     detail = response.json()
     assert detail["user"]["email"] == "normal_user@example.com"
@@ -185,7 +146,7 @@ def test_failed_login_logs_failure():
             "email": "invalid_user@example.com",
             "password": "wrongpassword"
         }
-        response = requests.post(f"{API_URL}/auth/login", json=payload)
+        response = client.post("/auth/login", json=payload)
         assert response.status_code == 401 or response.status_code == 404
         
         # Verify it was logged in the DB
@@ -211,7 +172,7 @@ def test_successful_login_logs_activity():
             "email": "normal_user@example.com",
             "password": "testpassword123"
         }
-        response = requests.post(f"{API_URL}/auth/login", json=payload)
+        response = client.post("/auth/login", json=payload)
         assert response.status_code == 200
         
         # Verify session log is created
