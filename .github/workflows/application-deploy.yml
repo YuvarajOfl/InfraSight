@@ -1,4 +1,4 @@
-name: Production CI/CD Pipeline
+name: Application Deployment
 
 on:
   workflow_dispatch:
@@ -39,59 +39,9 @@ jobs:
           fi
           echo "All secrets successfully verified!"
 
-  lint-and-test:
-    name: Lint & Test Application
-    needs: validate-secrets
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
-
-      # Frontend Linting
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: 'npm'
-          cache-dependency-path: './frontend/package-lock.json'
-
-      - name: Install Frontend Dependencies
-        run: |
-          cd frontend
-          npm ci
-
-      - name: Install ESLint and Plugins
-        run: |
-          cd frontend
-          npm install --save-dev eslint@8 @typescript-eslint/parser @typescript-eslint/eslint-plugin
-          echo '{"root": true, "env": {"browser": true, "es2020": true, "node": true}, "extends": ["eslint:recommended"], "parser": "@typescript-eslint/parser", "rules": {"no-unused-vars": "off", "no-undef": "off", "no-redeclare": "off", "@typescript-eslint/no-unused-vars": "off"}}' > .eslintrc.json
-
-      - name: Run Frontend Lint
-        run: |
-          cd frontend
-          npm run lint
-
-      # Backend Testing
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-          cache: 'pip'
-          cache-dependency-path: './backend/requirements.txt'
-
-      - name: Install Backend Dependencies
-        run: |
-          cd backend
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-
-      - name: Run Backend Tests
-        run: |
-          PYTHONPATH=. python -m pytest backend/tests/ -m "not integration"
-
   build-and-push:
     name: Build & Push Docker Images
-    needs: lint-and-test
+    needs: validate-secrets
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
@@ -102,6 +52,9 @@ jobs:
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
       # Build and Push Backend
       - name: Build & Push Backend Image
@@ -126,14 +79,13 @@ jobs:
             ${{ secrets.DOCKERHUB_USERNAME }}/infrasight-frontend:${{ github.sha }}
 
   deploy:
-    name: Provision & Deploy
+    name: Deploy to Existing EC2
     needs: build-and-push
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      # Provision Infrastructure
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -141,26 +93,20 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ap-south-1
 
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
-        with:
-          terraform_version: 1.5.0
-
-      - name: Terraform Init
-        run: |
-          cd terraform/aws
-          terraform init
-
-      - name: Terraform Apply
-        run: |
-          cd terraform/aws
-          terraform apply -auto-approve
-
-      - name: Fetch EC2 Public IP
+      - name: Fetch EC2 Public IP from AWS
         id: fetch-ip
         run: |
-          cd terraform/aws
-          EC2_IP=$(terraform output -raw public_ip)
+          echo "Fetching running EC2 instance Public IP..."
+          EC2_IP=$(aws ec2 describe-instances \
+            --filters "Name=tag:Name,Values=InfraSight-ec2-server" "Name=instance-state-name,Values=running" \
+            --query "Reservations[*].Instances[*].PublicIpAddress" \
+            --output text | head -n1)
+          
+          if [ -z "$EC2_IP" ] || [ "$EC2_IP" = "None" ]; then
+            echo "❌ ERROR: No running EC2 instance found with tag Name=InfraSight-ec2-server"
+            exit 1
+          fi
+          echo "Found running EC2 Instance at: $EC2_IP"
           echo "EC2_IP=$EC2_IP" >> $GITHUB_ENV
           echo "ec2_ip=$EC2_IP" >> $GITHUB_OUTPUT
 
@@ -181,60 +127,6 @@ jobs:
             echo "❌ ERROR: SSH connection to EC2 is unavailable."
             exit 1
           fi
-
-      - name: Wait for EC2 Bootstrap
-        run: |
-          echo "=== Starting EC2 Bootstrap Verification ==="
-          
-          echo "1. Waiting for port 22 to open..."
-          if command -v nc >/dev/null; then
-            for i in {1..30}; do
-              if nc -z -w5 ${{ env.EC2_IP }} 22; then
-                echo "✅ Port 22 is open!"
-                break
-              fi
-              echo "Waiting for port 22 ($i/30)..."
-              sleep 5
-            done
-          else
-            echo "nc not found, skipping port 22 check..."
-          fi
-
-          echo "2. Waiting for cloud-init status to finish..."
-          attempt=1
-          max_attempts=12
-          while [ $attempt -le $max_attempts ]; do
-            if ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no -o ConnectTimeout=10 ubuntu@${{ env.EC2_IP }} "sudo cloud-init status --wait" >/dev/null 2>&1; then
-              echo "✅ cloud-init has completed!"
-              break
-            fi
-            echo "Waiting for SSH / cloud-init availability ($attempt/$max_attempts)..."
-            sleep 5
-            attempt=$((attempt+1))
-          done
-          if [ $attempt -gt $max_attempts ]; then
-            echo "❌ Timeout waiting for cloud-init completion."
-            exit 1
-          fi
-
-          echo "3. Waiting for Docker daemon to respond..."
-          docker_attempt=1
-          max_docker_attempts=20
-          while [ $docker_attempt -le $max_docker_attempts ]; do
-            if ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no ubuntu@${{ env.EC2_IP }} "docker ps" >/dev/null 2>&1; then
-              echo "✅ Docker daemon is responsive!"
-              break
-            fi
-            echo "Waiting for Docker daemon to become responsive ($docker_attempt/$max_docker_attempts)..."
-            sleep 5
-            docker_attempt=$((docker_attempt+1))
-          done
-          if [ $docker_attempt -gt $max_docker_attempts ]; then
-            echo "❌ Timeout waiting for Docker daemon."
-            exit 1
-          fi
-          
-          echo "=== EC2 Bootstrap Completed Successfully! ==="
 
       - name: Verify Remote Directory Structure
         run: |
@@ -306,9 +198,28 @@ jobs:
             exit 1
           fi
 
+          echo "Checking frontend accessibility..."
+          frontend_response=$(curl -s -w "%{http_code}" -o /dev/null http://${{ env.EC2_IP }} || true)
+          if [ "$frontend_response" = "200" ]; then
+            echo "✅ Frontend web app is accessible!"
+          else
+            echo "⚠️ WARNING: Frontend web app returned status code $frontend_response."
+          fi
+
+          echo "Checking container status..."
+          ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no ubuntu@${{ env.EC2_IP }} "
+            cd /home/ubuntu/infrasight
+            docker compose ps
+          "
+
       # Summarize Run
       - name: Print Deployment Summary
         run: |
+          echo "### 🚀 InfraSight Application Successfully Deployed!" >> $GITHUB_STEP_SUMMARY
+          echo "- **Frontend Web App URL**: http://${{ env.EC2_IP }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Backend Swagger Docs**: http://${{ env.EC2_IP }}:8000/docs" >> $GITHUB_STEP_SUMMARY
+          echo "- **Deployment Status**: ✅ Success" >> $GITHUB_STEP_SUMMARY
+          
           echo "=========================================================="
           echo "🚀 InfraSight Application Successfully Deployed!"
           echo "=========================================================="

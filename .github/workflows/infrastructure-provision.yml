@@ -1,0 +1,68 @@
+name: Infrastructure Provisioning
+
+on:
+  workflow_dispatch:
+
+jobs:
+  terraform:
+    name: Terraform Plan & Apply
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ap-south-1
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.5.0
+
+      - name: Terraform Init
+        run: |
+          cd terraform/aws
+          terraform init
+
+      - name: Terraform Plan
+        run: |
+          cd terraform/aws
+          terraform plan
+
+      - name: Terraform Apply
+        run: |
+          cd terraform/aws
+          terraform apply -auto-approve
+
+      - name: Fetch and Display Outputs
+        run: |
+          cd terraform/aws
+          
+          EC2_IP=$(terraform output -raw public_ip)
+          INSTANCE_ID=$(terraform output -raw instance_id)
+          REGION="ap-south-1"
+          
+          # Query security group ID using AWS CLI
+          SG_ID=$(aws ec2 describe-instances \
+            --instance-ids $INSTANCE_ID \
+            --query "Reservations[*].Instances[*].SecurityGroups[*].GroupId" \
+            --output text | head -n1)
+          
+          echo "### 🏗️ Terraform Provisioning Summary" >> $GITHUB_STEP_SUMMARY
+          echo "- **EC2 Public IP**: $EC2_IP" >> $GITHUB_STEP_SUMMARY
+          echo "- **Instance ID**: $INSTANCE_ID" >> $GITHUB_STEP_SUMMARY
+          echo "- **Security Group ID**: $SG_ID" >> $GITHUB_STEP_SUMMARY
+          echo "- **Region**: $REGION" >> $GITHUB_STEP_SUMMARY
+          
+          echo "=========================================================="
+          echo "🏗️ Terraform Provisioning Complete!"
+          echo "=========================================================="
+          echo "EC2 Public IP: $EC2_IP"
+          echo "Instance ID: $INSTANCE_ID"
+          echo "Security Group: $SG_ID"
+          echo "Region: $REGION"
+          echo "=========================================================="

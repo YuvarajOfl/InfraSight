@@ -185,15 +185,6 @@ export function AdminUsers() {
                         {user.role || 'user'}
                       </span>
                     </td>
-                    <td className="px-6 py-3.5">
-                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold font-mono tracking-wider uppercase inline-flex items-center gap-1 ${
-                        user.is_active !== false 
-                          ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/15' 
-                          : 'bg-rose-500/10 text-rose-455 border border-rose-500/15'
-                      }`}>
-                        {user.is_active !== false ? 'Active' : 'Disabled'}
-                      </span>
-                    </td>
                     <td className="px-6 py-3.5 text-slate-400 capitalize">
                       {user.provider}
                     </td>
