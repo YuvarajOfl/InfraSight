@@ -51,6 +51,7 @@ export function AdminUserDetail() {
   const [loadingAction, setLoadingAction] = useState(false);
   const [actionPending, setActionPending] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [actionSuccess, setActionSuccess] = useState<string | null>(null);
 
   async function fetchUserDetail(showLoading = true) {
     try {
@@ -81,6 +82,7 @@ export function AdminUserDetail() {
   const handleAction = async (action: string) => {
     setLoadingAction(true);
     setActionError(null);
+    setActionSuccess(null);
     try {
       let url = `${API_URL}/api/admin/user/${id}`;
       let method = 'POST';
@@ -110,6 +112,11 @@ export function AdminUserDetail() {
       } else {
         await fetchUserDetail(false);
         setActionPending(null);
+        const actionLabel = action === 'disable' ? 'disabled' : 
+                            action === 'enable' ? 'enabled' : 
+                            action === 'promote' ? 'promoted to admin' : 
+                            action === 'demote' ? 'demoted to standard user' : action;
+        setActionSuccess(`User account successfully ${actionLabel}.`);
       }
     } catch (err: any) {
       setActionError(err.message || 'An error occurred while performing administrative task.');
@@ -223,7 +230,7 @@ export function AdminUserDetail() {
           {user.is_active !== false ? (
             <button
               onClick={() => handleAction('disable')}
-              disabled={actionLoading}
+              disabled={loadingAction}
               className="px-4 py-2 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/20 hover:border-amber-500/40 text-amber-400 rounded-xl text-xs font-bold transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-1.5"
             >
               Disable Account
@@ -231,7 +238,7 @@ export function AdminUserDetail() {
           ) : (
             <button
               onClick={() => handleAction('enable')}
-              disabled={actionLoading}
+              disabled={loadingAction}
               className="px-4 py-2 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 hover:border-emerald-500/40 text-emerald-400 rounded-xl text-xs font-bold transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-1.5"
             >
               Enable Account
@@ -241,7 +248,7 @@ export function AdminUserDetail() {
           {user.role !== 'admin' ? (
             <button
               onClick={() => handleAction('promote')}
-              disabled={actionLoading}
+              disabled={loadingAction}
               className="px-4 py-2 bg-purple-500/10 hover:bg-purple-500/20 border border-purple-500/20 hover:border-purple-500/40 text-purple-400 rounded-xl text-xs font-bold transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-1.5"
             >
               Promote to Admin
@@ -249,7 +256,7 @@ export function AdminUserDetail() {
           ) : (
             <button
               onClick={() => handleAction('demote')}
-              disabled={actionLoading}
+              disabled={loadingAction}
               className="px-4 py-2 bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/20 hover:border-indigo-500/40 text-indigo-400 rounded-xl text-xs font-bold transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-1.5"
             >
               Demote to User
@@ -262,7 +269,7 @@ export function AdminUserDetail() {
                 handleAction('delete');
               }
             }}
-            disabled={actionLoading}
+            disabled={loadingAction}
             className="px-4 py-2 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 hover:border-rose-500/40 text-rose-455 rounded-xl text-xs font-bold transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-1.5"
           >
             Soft Delete User
