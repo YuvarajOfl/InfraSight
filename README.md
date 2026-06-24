@@ -190,33 +190,6 @@ docker compose up -d
 
 ---
 
-## 📸 Screenshots
-
-### Dashboard
-
-![Dashboard](<img width="1920" height="1080" alt="Screenshot (820)" src="https://github.com/user-attachments/assets/7cb49d33-b6b8-4397-b3af-22d739898d98" />)
-
-### Infrastructure Analysis
-
-![Infrastructure Analysis](docs/images/analysis.png)
-
-### AI Security Advisor
-
-![AI Advisor](<img width="1920" height="1080" alt="Screenshot (819)" src="https://github.com/user-attachments/assets/b2addb98-cf09-4389-90b8-685e6dd337d7" />
-)
-
-### Reports
-
-![Reports](<img width="1920" height="1080" alt="Screenshot (821)" src="https://github.com/user-attachments/assets/704e58f3-2f83-418d-aa9e-a7ee8a05c787" />
-)
-
-### Admin Control Center
-
-![Admin Panel](<img width="1920" height="1080" alt="Screenshot (823)" src="https://github.com/user-attachments/assets/b9153e40-4eb5-4c88-923e-2b76bced1efc" />
-)
-
----
-
 ## 🎯 Learning Outcomes
 
 This project demonstrates practical experience with:
